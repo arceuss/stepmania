@@ -160,6 +160,18 @@ struct QuantizedStateMap
 		m_quanta.resize(1);
 		m_quanta[0]= {1, {1}};
 	}
+	size_t get_states_used()
+	{
+		size_t highest= 0;
+		for(auto&& qu : m_quanta)
+		{
+			for(auto&& st : qu.states)
+			{
+				highest= std::max(highest, st);
+			}
+		}
+		return highest;
+	}
 private:
 	size_t m_parts_per_beat;
 	std::vector<QuantizedStates> m_quanta;
@@ -238,70 +250,82 @@ struct QuantizedTap
 	{
 		m_actor->SetTimingSource(source);
 	}
-	void update()
+	void update(float delta)
 	{
-		m_actor->Update(1.0f);
+		m_actor->Update(delta);
 	}
-	Actor* get_common(size_t state)
+	void set_sprites(size_t state)
 	{
-		m_actor->SetState(state);
-		// Return the frame and not the actor because the notefield is going to
-		// apply mod transforms to it.  Returning the actor would make the mod
-		// transform stomp on the rotation the noteskin supplies.
-		return &m_frame;
+		for(auto&& spr : m_sprites)
+		{
+			spr->SetState(state);
+		}
+	}
+	void set_models(float tx, float ty, float si)
+	{
+		for(auto&& mod : m_models)
+		{
+			mod->SetSecondsIntoAnimation(si);
+			mod->SetTextureTranslate(tx, ty);
+		}
 	}
 	Actor* get_quantized(double quantization, double beat, bool active)
 	{
-		if(m_use_texture_map)
+		if(!m_sprites.empty())
+		{
+			const size_t state= active ?
+				m_state_map.calc_state(quantization, beat, m_vivid) :
+				m_inactive_map.calc_state(quantization, beat, m_vivid);
+			set_sprites(state);
+		}
+		if(!m_models.empty())
 		{
 			float trans_x, trans_y, seconds_in;
 			active ? m_texture_map.calc_trans(quantization, beat, m_vivid,
 				trans_x, trans_y, seconds_in) :
 				m_inactive_texture_map.calc_trans(quantization, beat, m_vivid,
 					trans_x, trans_y, seconds_in);
-			m_actor->SetSecondsIntoAnimation(seconds_in);
-			m_actor->SetTextureTranslate(trans_x, trans_y);
-			return &m_frame;
+			set_models(trans_x, trans_y, seconds_in);
 		}
-		else
-		{
-			const size_t state= active ?
-				m_state_map.calc_state(quantization, beat, m_vivid) :
-				m_inactive_map.calc_state(quantization, beat, m_vivid);
-			return get_common(state);
-		}
+		// Return the frame and not the actor because the notefield is going to
+		// apply mod transforms to it.  Returning the actor would make the mod
+		// transform stomp on the rotation the noteskin supplies.
+		return &m_frame;
 	}
 	Actor* get_playerized(size_t pn, double beat, bool active)
 	{
-		if(m_use_texture_map)
+		if(!m_sprites.empty())
+		{
+			const size_t state= active ?
+				m_state_map.calc_player_state(pn, beat, m_vivid) :
+				m_inactive_map.calc_player_state(pn, beat, m_vivid);
+			set_sprites(state);
+		}
+		if(!m_models.empty())
 		{
 			float trans_x, trans_y, seconds_in;
 			active ? m_texture_map.calc_player_trans(pn, beat,
 				trans_x, trans_y, seconds_in) :
 				m_inactive_texture_map.calc_player_trans(pn, beat,
 					trans_x, trans_y, seconds_in);
-			m_actor->SetSecondsIntoAnimation(seconds_in);
-			m_actor->SetTextureTranslate(trans_x, trans_y);
-			return &m_frame;
+			set_models(trans_x, trans_y, seconds_in);
 		}
-		else
-		{
-			const size_t state= active ?
-				m_state_map.calc_player_state(pn, beat, m_vivid) :
-				m_inactive_map.calc_player_state(pn, beat, m_vivid);
-			return get_common(state);
-		}
+		return &m_frame;
 	}
 	bool load_from_lua(lua_State* L, int index, std::string& insanity_diagnosis);
-	bool m_vivid;
+	void recursive_find_parts(Actor* part);
 private:
+	std::vector<Actor*> m_sprites;
+	std::vector<Actor*> m_models;
 	QuantizedStateMap m_state_map;
 	QuantizedStateMap m_inactive_map;
 	QuantizedTextureMap m_texture_map;
 	QuantizedTextureMap m_inactive_texture_map;
-	bool m_use_texture_map;
 	AutoActor m_actor;
 	ActorFrame m_frame;
+	size_t m_states_used;
+public:
+	bool m_vivid;
 };
 
 enum TexCoordFlipMode
@@ -318,11 +342,12 @@ LuaDeclareType(TexCoordFlipMode);
 
 struct hold_part_lengths
 {
-	double start_note_offset;
-	double end_note_offset;
-	double head_pixs;
-	double body_pixs;
-	double tail_pixs;
+	double topcap_pixels;
+	double pixels_before_note;
+	double body_pixels;
+	double pixels_after_note;
+	double bottomcap_pixels;
+	bool needs_jumpback;
 };
 
 struct QuantizedHoldRenderData
@@ -383,7 +408,7 @@ struct QuantizedHold
 struct NoteSkinColumn
 {
 	void set_timing_source(TimingSource* source);
-	void update_taps();
+	void update_taps(float delta);
 	Actor* get_tap_actor(size_t type, double quantization, double beat, bool active, bool reverse);
 	Actor* get_optional_actor(size_t type, double quantization, double beat, bool active, bool reverse);
 	Actor* get_player_tap(size_t type, size_t pn, double beat, bool active, bool reverse);
@@ -510,6 +535,7 @@ struct NoteSkinData
 {
 	static const size_t max_columns= 256;
 	NoteSkinData();
+	~NoteSkinData();
 	void swap(NoteSkinData& other);
 	NoteSkinColumn* get_column(size_t column)
 	{
@@ -523,11 +549,14 @@ struct NoteSkinData
 	bool load_taps_from_lua(lua_State* L, int index, size_t columns,
 		NoteSkinLoader const* load_skin, std::string& insanity_diagnosis);
 	bool loaded_successfully() const { return m_loaded; }
+	void clear();
 
 	// The layers are public so that the NoteFieldColumns can go through and
 	// take ownership of the actors after loading.
 	std::vector<NoteSkinLayer> m_layers;
 	std::vector<Rage::Color> m_player_colors;
+	std::vector<Actor*> m_field_layers;
+	bool m_children_owned_by_field_now;
 private:
 	std::vector<NoteSkinColumn> m_columns;
 	LuaReference m_skin_parameters;
@@ -556,31 +585,32 @@ struct NoteSkinLoader
 	bool load_from_file(std::string const& path);
 	bool load_from_lua(lua_State* L, int index, std::string const& name,
 		std::string const& path, std::string& insanity_diagnosis);
-	bool supports_needed_buttons(StepsType stype) const;
-	bool push_loader_function(lua_State* L, std::string const& loader);
+	bool supports_needed_buttons(StepsType stype, bool disable_supports_all= false) const;
+	bool push_loader_function(lua_State* L, std::string const& loader) const;
 	bool load_layer_set_into_data(lua_State* L, LuaReference& skin_params,
 		int button_list_index, int stype_index,
 		size_t columns, std::vector<std::string> const& loader_set,
-		std::vector<NoteSkinLayer>& dest, std::string& insanity_diagnosis);
+		std::vector<NoteSkinLayer>& dest, std::string& insanity_diagnosis) const;
 	bool load_into_data(StepsType stype, LuaReference& skin_params,
-		NoteSkinData& dest, std::string& insanity_diagnosis);
-	void sanitize_skin_parameters(lua_State* L, LuaReference& params);
+		NoteSkinData& dest, std::string& insanity_diagnosis) const;
+	void sanitize_skin_parameters(lua_State* L, LuaReference& params) const;
 	void push_skin_parameter_info(lua_State* L) const;
 	void push_skin_parameter_defaults(lua_State* L) const;
 private:
 	void recursive_sanitize_skin_parameters(lua_State* L,
 		std::unordered_set<void const*>& visited_tables, int curr_depth,
 		int curr_param_set_info, int curr_param_set_defaults,
-		int curr_param_set_dest);
+		int curr_param_set_dest) const;
 	std::string m_skin_name;
 	std::string m_fallback_skin_name;
 	std::string m_load_path;
 	std::string m_notes_loader;
 	std::vector<std::string> m_layer_loaders;
+	std::vector<std::string> m_field_layer_names;
 	std::vector<Rage::Color> m_player_colors;
 	std::unordered_set<std::string> m_supported_buttons;
-	LuaReference m_skin_parameters;
-	LuaReference m_skin_parameter_info;
+	mutable LuaReference m_skin_parameters;
+	mutable LuaReference m_skin_parameter_info;
 	bool m_supports_all_buttons;
 };
 

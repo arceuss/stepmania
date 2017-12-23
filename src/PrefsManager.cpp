@@ -1,5 +1,6 @@
 #include "global.h"
 #include "PrefsManager.h"
+#include "arch/ArchHooks/ArchHooks.h"
 #include "IniFile.h"
 #include "LuaManager.h"
 #include "Preference.h"
@@ -229,7 +230,6 @@ PrefsManager::PrefsManager() :
 	m_AllowMultipleToasties		("AllowMultipleToasties",	true ),
 	m_MinTNSToHideNotes		("MinTNSToHideNotes",		TNS_W3 ),
 	m_ShowSongOptions		( "ShowSongOptions",		Maybe_NO ),
-	m_bDancePointsForOni		( "DancePointsForOni",		true ),
 	m_bPercentageScoring		( "PercentageScoring",		false ),
 	// Wow, these preference names are *seriously* long -Colby
 	m_fMinPercentageForMachineSongHighScore		( "MinPercentageForMachineSongHighScore",	0.0001f ), // This is for home, who cares how bad you do?
@@ -299,6 +299,12 @@ PrefsManager::PrefsManager() :
 	m_bAllowSongDeletion		( "AllowSongDeletion",			false ),
 
 	m_bQuirksMode			( "QuirksMode",		false ),
+
+	m_custom_songs_enable("CustomSongsEnable", false),
+	m_custom_songs_max_count("CustomSongsMaxCount", 1000), // No limit. -- 2 Unlimited
+	m_custom_songs_load_timeout("CustomSongsLoadTimeout", 5.f),
+	m_custom_songs_max_seconds("CustomSongsMaxSeconds", 120.f),
+	m_custom_songs_max_megabytes("CustomSongsMaxMegabytes", 5.f),
 
 	/* Debug: */
 	m_bLogToDisk			( "LogToDisk",		true ),
@@ -584,6 +590,10 @@ public:
 
 		lua_pushvalue( L, 2 );
 		pPref->SetFromStack( L );
+		if(sName == "ShowMouseCursor")
+		{
+			HOOKS->UpdateShowMouseCursor();
+		}
 		COMMON_RETURN_SELF;
 	}
 	static int SetPreferenceToDefault(T* p, lua_State *L)

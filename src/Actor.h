@@ -682,6 +682,10 @@ public:
 	virtual void SetUpdateRate( float ) {}
 	virtual float GetUpdateRate() { return 1.0f; }
 
+	void set_clickable_area(std::vector<Rage::Vector2> const& points);
+	std::vector<Rage::Vector2> const& get_screen_clickable_area();
+	bool pos_in_clickable_area(float x, float y);
+
 	HiddenPtr<LuaClass> m_pLuaInstance;
 
 protected:
@@ -723,9 +727,14 @@ protected:
 	Rage::Color m_internalDiffuse;
 	Rage::Color m_internalGlow;
 
+	// For making it possible to click on sprites. -Kyz
+	std::vector<Rage::Vector2> m_clickable_area;
+	std::vector<Rage::Vector2> m_screen_clickable_area;
+
 	Rage::Vector2	m_size;
 	TweenState	m_current;
 	TweenState	m_start;
+	TweenState m_current_with_effects;
 	struct TweenStateAndInfo
 	{
 		TweenState state;

@@ -316,7 +316,7 @@ void CourseUtil::AutogenOniFromArtist( const std::string &sArtistName, std::stri
 	 * song set changes. */
 	{
 		RandomGen rng( GetHashForString( sArtistName ) + aSongs.size() );
-		random_shuffle( aSongs.begin(), aSongs.end(), rng );
+		std::shuffle( aSongs.begin(), aSongs.end(), rng );
 	}
 
 	// Only use up to four songs.
@@ -470,7 +470,7 @@ void EditCourseUtil::UpdateAndSetTrail()
 
 void EditCourseUtil::PrepareForPlay()
 {
-	GAMESTATE->m_pCurSong.Set( nullptr );	// CurSong will be set if we back out.  Set it back to nullptr so that ScreenStage won't show the last song.
+	GAMESTATE->set_curr_song(nullptr);	// CurSong will be set if we back out.  Set it back to nullptr so that ScreenStage won't show the last song.
 	GAMESTATE->m_PlayMode.Set( PLAY_MODE_ENDLESS );
 	GAMESTATE->m_bSideIsJoined[0] = true;
 

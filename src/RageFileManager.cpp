@@ -357,6 +357,16 @@ void RageFileManager::MountUserFilesystems()
 	HOOKS->MountUserFilesystems( RageFileManagerUtil::sDirOfExecutable );
 }
 
+void RageFileManager::send_init_mount_errors_to_log()
+{
+	ASSERT_M(LOG != nullptr, "Cannot call RageFileManager::send_init_mount_errors_to_log before LOG is created.");
+	for(auto&& message : m_init_mount_errors)
+	{
+		LOG->Warn(message);
+	}
+	m_init_mount_errors.clear();
+}
+
 RageFileManager::~RageFileManager()
 {
 	// Unregister with Lua.
@@ -477,11 +487,22 @@ void RageFileManager::GetDirListing( std::string const &sPath_, vector<std::stri
 	}
 }
 
-void RageFileManager::GetDirListingWithMultipleExtensions( std::string const &sPath, vector<std::string> const& ExtensionList, vector<std::string> &AddTo, bool bOnlyDirs, bool bReturnPathToo )
+void RageFileManager::GetDirListingWithMultipleExtensions(
+	std::string const &path, vector<std::string> const& ext_list,
+	vector<std::string> &add_to, bool only_dirs, bool return_path_too)
 {
-	for (auto &item: ExtensionList)
+	vector<std::string> ret;
+	GetDirListing(path + "*", ret, only_dirs, return_path_too);
+	for(auto&& item : ret)
 	{
-		GetDirListing(sPath + "*." + item, AddTo, bOnlyDirs, bReturnPathToo);
+		std::string item_ext= GetExtension(item);
+		for(auto&& check_ext : ext_list)
+		{
+			if(item_ext == check_ext)
+			{
+				add_to.push_back(item);
+			}
+		}
 	}
 }
 
@@ -607,12 +628,17 @@ bool RageFileManager::Mount( const std::string &sType, const std::string &sRoot_
 	RageFileDriver *pDriver = MakeFileDriver( sType, sRoot );
 	if( pDriver == nullptr )
 	{
-		CHECKPOINT_M( fmt::sprintf("Can't mount unknown VFS type \"%s\", root \"%s\"", sType.c_str(), sRoot.c_str() ) );
+		std::string message= fmt::sprintf("Can't mount unknown VFS type \"%s\", root \"%s\"", sType.c_str(), sRoot.c_str());
+		CHECKPOINT_M(message);
 
-		if( LOG )
-			LOG->Warn("Can't mount unknown VFS type \"%s\", root \"%s\"", sType.c_str(), sRoot.c_str() );
+		if(LOG)
+		{
+			LOG->Warn(message);
+		}
 		else
-			fprintf( stderr, "Can't mount unknown VFS type \"%s\", root \"%s\"\n", sType.c_str(), sRoot.c_str() );
+		{
+			m_init_mount_errors.push_back(message);
+		}
 		return false;
 	}
 

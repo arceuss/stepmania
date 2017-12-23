@@ -484,7 +484,7 @@ struct bmsCommandTree
 			while (randomStack.size() < currentNode->branchHeight + 1) // if we're on branch level N we need N+1 values.
 				randomStack.push_back(0);
 
-			randomStack[currentNode->branchHeight] = rand() % StringToInt(value) + 1;
+			randomStack[currentNode->branchHeight] = random_up_to(g_RandomNumberGenerator, StringToInt(value)) + 1;
 		}
 		else
 		{
@@ -914,7 +914,7 @@ void BMSChartReader::ReadHeaders()
 		else if (it.first == "#offset")
 		{
 			// This gets copied into the real timing data later.
-			out->m_Timing.m_fBeat0OffsetInSeconds = -StringToFloat(it.second);
+			out->m_Timing.set_offset(-StringToFloat(it.second));
 		}
 		else if (it.first == "#maker")
 		{
@@ -1125,7 +1125,7 @@ bool BMSChartReader::ReadNoteData()
 	NoteData   nd;
 	TimingData td;
 
-	td.m_fBeat0OffsetInSeconds = out->m_Timing.m_fBeat0OffsetInSeconds;
+	td.set_offset(out->m_Timing.get_offset());
 	nd.SetNumTracks( tracks );
 	td.SetBPMAtRow( 0, currentBPM = initialBPM );
 

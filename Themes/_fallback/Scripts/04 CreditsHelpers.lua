@@ -88,6 +88,7 @@ local stepmania_credits= {
 		"latot", -- minor cleanup
 		"Mad Matt", -- new lua bindings
 		"Matt McCutchen", -- minor fix for some dance pads on linux
+		"MrThatKid", -- nitg modifiers
 		"NitroX72", -- pump/frame noteskin
 		"nixtrix", -- various BMS features and other fixes
 		"Petriform", -- default theme music
@@ -95,6 +96,7 @@ local stepmania_credits= {
 		"psmay", -- SextetStream driver and related things
 		"桜為小鳩/Sakurana-Kobato (@sakuraponila)", -- custom scoring fixes
 		"Samuel Kim (1a2a3a2a1a)", -- various beat mode fixes
+		"SpoOkyMagician", -- testing, debug builds
 		"tuxdude", -- minor changes to service menu layout
 		"v1toko", -- x-mode from StepNXA
 		"Wallacoloo", -- delete songs, other fixes

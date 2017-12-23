@@ -1044,6 +1044,7 @@
 			<Function name='playanimation'/>
 			<Function name='position'/>
 			<Function name='rate'/>
+			<Function name='InverseBindPose'/>
 		</Class>
 		<Class base='WheelBase' name='MusicWheel'>
 			<Function name='ChangeSort'/>
@@ -1133,29 +1134,83 @@
 		<Class name='PlayerOptions'>
 			<Function name='Alternate'/>
 			<Function name='AttackMines'/>
+			<Function name='AttenuateX'/>
+			<Function name='AttenuateY'/>
+			<Function name='AttenuateZ'/>
 			<Function name='Backwards'/>
 			<Function name='BatteryLives'/>
 			<Function name='Beat'/>
+			<Function name='BeatMult'/>
+			<Function name='BeatOffset'/>
+			<Function name='BeatPeriod'/>
+			<Function name='BeatY'/>
+			<Function name='BeatYMult'/>
+			<Function name='BeatYOffset'/>
+			<Function name='BeatYPeriod'/>
+			<Function name='BeatZ'/>
+			<Function name='BeatZMult'/>
+			<Function name='BeatZOffset'/>
+			<Function name='BeatZPeriod'/>
 			<Function name='Big'/>
 			<Function name='Blind'/>
 			<Function name='Blink'/>
 			<Function name='Boomerang'/>
 			<Function name='Boost'/>
+			<Function name='Bounce'/>
+			<Function name='BouncePeriod'/>
+			<Function name='BounceOffset'/>
+			<Function name='BounceZ'/>
+			<Function name='BounceZPeriod'/>
+			<Function name='BounceZOffset'/>
 			<Function name='BMRize'/>
 			<Function name='Brake'/>
 			<Function name='Bumpy'/>
+			<Function name='Bumpyn'/>
+			<Function name='BumpyOffset'/>
+			<Function name='BumpyPeriod'/>
+			<Function name='BumpyX'/>
+			<Function name='BumpyXOffset'/>
+			<Function name='BumpyXPeriod'/>
 			<Function name='Centered'/>
 			<Function name='CMod'/>
 			<Function name='Confusion'/>
+			<Function name='ConfusionOffset'/>
+			<Function name='ConfusionOffsetn'/>
+			<Function name='ConfusionX'/>
+			<Function name='ConfusionXOffset'/>
+			<Function name='ConfusionXOffsetn'/>
+			<Function name='ConfusionY'/>
+			<Function name='ConfusionYOffset'/>
+			<Function name='ConfusionYOffsetn'/>
+			<Function name='Cosecant'/>
 			<Function name='Cover'/>
 			<Function name='Cross'/>
 			<Function name='Dark'/>
+			<Function name='Darkn'/>
+			<Function name='Digital'/>
+			<Function name='DigitalOffset'/>
+			<Function name='DigitalPeriod'/>
+			<Function name='DigitalSteps'/>
+			<Function name='DigitalZ'/>
+			<Function name='DigitalZOffset'/>
+			<Function name='DigitalZPeriod'/>
+			<Function name='DigitalZSteps'/>
 			<Function name='Dizzy'/>
 			<Function name='Distant'/>
 			<Function name='DrainSetting'/>
+			<Function name='DrawSize'/>
+			<Function name='DrawSizeBack'/>
 			<Function name='Drunk'/>
+			<Function name='DrunkOffset'/>
+			<Function name='DrunkPeriod'/>
+			<Function name='DrunkSpeed'/>
+			<Function name='DrunkZ'/>
+			<Function name='DrunkZOffset'/>
+			<Function name='DrunkZPeriod'/>
+			<Function name='DrunkZSpeed'/>
 			<Function name='Echo'/>
 			<Function name='Expand'/>
+			<Function name='ExpandPeriod'/>
 			<Function name='FailSetting'/>
 			<Function name='Flip'/>
 			<Function name='Floored'/>
@@ -1172,12 +1227,18 @@
 			<Function name='Left'/>
 			<Function name='LifeSetting'/>
 			<Function name='Little'/>
+			<Function name='ModTimerSetting'/>
+			<Function name='ModTimerMult'/>
+			<Function name='ModTimerOffset'/>
 			<Function name='MaxScrollBPM'/>
 			<Function name='Mines'/>
 			<Function name='Mini'/>
 			<Function name='MinTNSToHideNotes' />
 			<Function name='Mirror'/>
 			<Function name='MMod'/>
+			<Function name='MoveXn'/>
+			<Function name='MoveYn'/>
+			<Function name='MoveZn'/>
 			<Function name='MuteOnError'/>
 			<Function name='NoAttack'/>
 			<Function name='NoFakes'/>
@@ -1191,25 +1252,48 @@
 			<Function name='NoStretch'/>
 			<Function name='NoteSkin'/>
 			<Function name='Overhead'/>
+			<Function name='ParabolaX'/>
+			<Function name='ParabolaY'/>
+			<Function name='ParabolaZ'/>
 			<Function name='Passmark'/>
 			<Function name='Planted'/>
 			<Function name='PlayerAutoPlay'/>
+			<Function name='PulseInner'/>
+			<Function name='PulseOffset'/>
+			<Function name='PulseOuter'/>
+			<Function name='PulsePeriod'/>
 			<Function name='Quick'/>
 			<Function name='RandAttack'/>
 			<Function name='RandomSpeed'/>
 			<Function name='RandomVanish'/>
 			<Function name='Reverse'/>
+			<Function name='Reversen'/>
 			<Function name='Right'/>
 			<Function name='Roll'/>
+			<Function name='Sawtooth'/>
+			<Function name='SawtoothPeriod'/>
+			<Function name='SawtoothZ'/>
+			<Function name='SawtoothZPeriod'/>
 			<Function name='ScrollBPM'/>
 			<Function name='ScrollSpeed'/>
+			<Function name='ShrinkLinear'/>
+			<Function name='ShrinkMult'/>
 			<Function name='Shuffle'/>
 			<Function name='Skew'/>
 			<Function name='Skippy'/>
 			<Function name='SoftShuffle'/>
 			<Function name='Space'/>
 			<Function name='Split'/>
+			<Function name='Square'/>
+			<Function name='SquareOffset'/>
+			<Function name='SquarePeriod'/>
+			<Function name='SquareZ'/>
+			<Function name='SquareZOffset'/>
+			<Function name='SquareZPeriod'/>
 			<Function name='Stealth'/>
+			<Function name='Stealthn'/>
+			<Function name='StealthPastReceptors'/>
+			<Function name='StealthType'/>
 			<Function name='Stomp'/>
 			<Function name='Sudden'/>
 			<Function name='SuddenOffset'/>
@@ -1217,16 +1301,31 @@
 			<Function name='TimeSpacing'/>
 			<Function name='Tilt'/>
 			<Function name='Tiny'/>
+			<Function name='Tinyn'/>
 			<Function name='Tipsy'/>
+			<Function name='TipsyOffset'/>
+			<Function name='TipsySpeed'/>
 			<Function name='Tornado'/>
+			<Function name='TornadoOffset'/>
+			<Function name='TornadoPeriod'/>
+			<Function name='TornadoZ'/>
+			<Function name='TornadoZOffset'/>
+			<Function name='TornadoZPeriod'/>
 			<Function name='TurnNone'/>
 			<Function name='Twirl'/>
 			<Function name='Twister'/>
 			<Function name='UsingReverse'/>
 			<Function name='Wave'/>
+			<Function name='WavePeriod'/>
 			<Function name='Wide'/>
 			<Function name='XMod'/>
 			<Function name='Xmode'/>
+			<Function name='Zigzag'/>
+			<Function name='ZigzagOffset'/>
+			<Function name='ZigzagPeriod'/>
+			<Function name='ZigzagZ'/>
+			<Function name='ZigzagZOffset'/>
+			<Function name='ZigzagZPeriod'/>
 		</Class>
 		<Class name='PlayerStageStats'>
 			<Function name='FailPlayer'/>
@@ -1271,6 +1370,7 @@
 			<Function name='IsDisqualified'/>
 			<Function name='MaxCombo'/>
 			<Function name='SetCurMaxScore'/>
+			<Function name='SetDancePointLimits'/>
 			<Function name='SetScore'/>
 		</Class>
 		<Class name='PlayerState'>
@@ -1582,6 +1682,7 @@
 			<Function name='CanOpenOptionsList'/>
 			<Function name='GetGoToOptions'/>
 			<Function name='GetMusicWheel'/>
+			<Function name='CloseCurrentSection' />
 			<Function name='OpenOptionsList'/>
 			<Function name='setupcoursestagemods'/>
 			<Function name='setupmusicstagemods'/>
@@ -1730,8 +1831,6 @@
 			<Function name='GetSongBeat'/>
 			<Function name='GetSongBeatNoOffset'/>
 			<Function name='GetSongBeatVisible'/>
-			<Function name='GetWarpBeginRow'/>
-			<Function name='GetWarpDestination'/>
 		</Class>
 		<Class base='Actor' name='Sprite'>
 			<Function name='CropTo'/>
@@ -2332,6 +2431,12 @@
 			<EnumValue name='&apos;ModsLevel_Stage&apos;' value='1'/>
 			<EnumValue name='&apos;ModsLevel_Song&apos;' value='2'/>
 			<EnumValue name='&apos;ModsLevel_Current&apos;' value='3'/>
+		</Enum>
+		<Enum name='ModTimerType'>
+			<EnumValue name='&apos;ModTimerType_Game&apos;' value='0'/>
+			<EnumValue name='&apos;ModTimerType_Beat&apos;' value='1'/>
+			<EnumValue name='&apos;ModTimerType_Song&apos;' value='2'/>
+			<EnumValue name='&apos;ModTimerType_Default&apos;' value='3'/>
 		</Enum>
 		<Enum name='Month'>
 			<EnumValue name='&apos;Month_January&apos;' value='0'/>

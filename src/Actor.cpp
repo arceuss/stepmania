@@ -519,17 +519,14 @@ void Actor::PreDraw() // calculate actor properties
 	// Somthing below may set m_pTempState to tempState
 	m_pTempState = &m_current;
 
-	// set temporary drawing properties based on Effects
-	static TweenState tempState;
-
 	// todo: account for SSC_FUTURES -aj
 	if( m_Effect == no_effect )
 	{
 	}
 	else
 	{
-		m_pTempState = &tempState;
-		tempState = m_current;
+		m_pTempState= & m_current_with_effects;
+		m_current_with_effects= m_current;
 
 		const float fTotalPeriod = GetEffectPeriod();
 		ASSERT( fTotalPeriod > 0 );
@@ -568,77 +565,77 @@ void Actor::PreDraw() // calculate actor properties
 		float fPercentBetweenColors = Rage::FastSin( (fPercentThroughEffect + 0.25f) * 2 * Rage::PI ) / 2 + 0.5f;
 		ASSERT_M( fPercentBetweenColors >= 0 && fPercentBetweenColors <= 1,
 			fmt::sprintf("PercentBetweenColors: %f, PercentThroughEffect: %f", fPercentBetweenColors, fPercentThroughEffect) );
-		float fOriginalAlpha = tempState.diffuse[0].a;
+		float fOriginalAlpha = m_current_with_effects.diffuse[0].a;
 
 		// todo: account for SSC_FUTURES -aj
 		switch( m_Effect )
 		{
 		case diffuse_blink:
-			/* XXX: Should diffuse_blink and diffuse_shift multiply the tempState color?
+			/* XXX: Should diffuse_blink and diffuse_shift multiply the m_current_with_effects color?
 			 * (That would have the same effect with 1,1,1,1, and allow tweening the diffuse
 			 * while blinking and shifting.) */
 			for(int i=0; i<NUM_DIFFUSE_COLORS; i++)
 			{
-				tempState.diffuse[i] = bBlinkOn ? m_effectColor1 : m_effectColor2;
-				tempState.diffuse[i].a *= fOriginalAlpha;	// multiply the alphas so we can fade even while an effect is playing
+				m_current_with_effects.diffuse[i] = bBlinkOn ? m_effectColor1 : m_effectColor2;
+				m_current_with_effects.diffuse[i].a *= fOriginalAlpha;	// multiply the alphas so we can fade even while an effect is playing
 			}
 			break;
 		case diffuse_shift:
 			for(int i=0; i<NUM_DIFFUSE_COLORS; i++)
 			{
-				tempState.diffuse[i] = m_effectColor1*fPercentBetweenColors + m_effectColor2*(1.0f-fPercentBetweenColors);
-				tempState.diffuse[i].a *= fOriginalAlpha;	// multiply the alphas so we can fade even while an effect is playing
+				m_current_with_effects.diffuse[i] = m_effectColor1*fPercentBetweenColors + m_effectColor2*(1.0f-fPercentBetweenColors);
+				m_current_with_effects.diffuse[i].a *= fOriginalAlpha;	// multiply the alphas so we can fade even while an effect is playing
 			}
 			break;
 		case diffuse_ramp:
 			for(int i=0; i<NUM_DIFFUSE_COLORS; i++)
 			{
-				tempState.diffuse[i] = m_effectColor1*fPercentThroughEffect + m_effectColor2*(1.0f-fPercentThroughEffect);
-				tempState.diffuse[i].a *= fOriginalAlpha;	// multiply the alphas so we can fade even while an effect is playing
+				m_current_with_effects.diffuse[i] = m_effectColor1*fPercentThroughEffect + m_effectColor2*(1.0f-fPercentThroughEffect);
+				m_current_with_effects.diffuse[i].a *= fOriginalAlpha;	// multiply the alphas so we can fade even while an effect is playing
 			}
 			break;
 		case glow_blink:
-			tempState.glow = bBlinkOn ? m_effectColor1 : m_effectColor2;
-			tempState.glow.a *= fOriginalAlpha;	// don't glow if the Actor is transparent!
+			m_current_with_effects.glow = bBlinkOn ? m_effectColor1 : m_effectColor2;
+			m_current_with_effects.glow.a *= fOriginalAlpha;	// don't glow if the Actor is transparent!
 			break;
 		case glow_shift:
-			tempState.glow = m_effectColor1*fPercentBetweenColors + m_effectColor2*(1.0f-fPercentBetweenColors);
-			tempState.glow.a *= fOriginalAlpha;	// don't glow if the Actor is transparent!
+			m_current_with_effects.glow = m_effectColor1*fPercentBetweenColors + m_effectColor2*(1.0f-fPercentBetweenColors);
+			m_current_with_effects.glow.a *= fOriginalAlpha;	// don't glow if the Actor is transparent!
 			break;
 		case glow_ramp:
-			tempState.glow = m_effectColor1*fPercentThroughEffect + m_effectColor2*(1.0f-fPercentThroughEffect);
-			tempState.glow.a *= fOriginalAlpha;	// don't glow if the Actor is transparent!
+			m_current_with_effects.glow = m_effectColor1*fPercentThroughEffect + m_effectColor2*(1.0f-fPercentThroughEffect);
+			m_current_with_effects.glow.a *= fOriginalAlpha;	// don't glow if the Actor is transparent!
 			break;
 		case rainbow:
-			tempState.diffuse[0] = Rage::Color(
+			m_current_with_effects.diffuse[0] = Rage::Color(
 				Rage::FastCos( fPercentBetweenColors * 2 * Rage::PI ) * 0.5f + 0.5f,
 				Rage::FastCos( fPercentBetweenColors * 2 * Rage::PI + Rage::PI * 2.0f / 3.0f ) * 0.5f + 0.5f,
 				Rage::FastCos( fPercentBetweenColors * 2 * Rage::PI + Rage::PI * 4.0f / 3.0f) * 0.5f + 0.5f,
 				fOriginalAlpha );
 			for( int i=1; i<NUM_DIFFUSE_COLORS; i++ )
-				tempState.diffuse[i] = tempState.diffuse[0];
+				m_current_with_effects.diffuse[i] = m_current_with_effects.diffuse[0];
 			break;
 		case wag:
-			tempState.rotation += m_vEffectMagnitude * Rage::FastSin( fPercentThroughEffect * 2.0f * Rage::PI );
+			m_current_with_effects.rotation += m_vEffectMagnitude * Rage::FastSin( fPercentThroughEffect * 2.0f * Rage::PI );
 			break;
 		case spin:
 			// nothing needs to be here
 			break;
 		case vibrate:
-			tempState.pos.x += m_vEffectMagnitude.x * randomf(-1.0f, 1.0f) * GetZoom();
-			tempState.pos.y += m_vEffectMagnitude.y * randomf(-1.0f, 1.0f) * GetZoom();
-			tempState.pos.z += m_vEffectMagnitude.z * randomf(-1.0f, 1.0f) * GetZoom();
+			m_current_with_effects.pos.x += m_vEffectMagnitude.x * randomf(-1.0f, 1.0f) * GetZoom();
+			m_current_with_effects.pos.y += m_vEffectMagnitude.y * randomf(-1.0f, 1.0f) * GetZoom();
+			m_current_with_effects.pos.z += m_vEffectMagnitude.z * randomf(-1.0f, 1.0f) * GetZoom();
 			break;
 		case bounce:
 			{
 				float fPercentOffset = Rage::FastSin( fPercentThroughEffect * Rage::PI );
-				tempState.pos += m_vEffectMagnitude * fPercentOffset;
+				m_current_with_effects.pos += m_vEffectMagnitude * fPercentOffset;
 			}
 			break;
 		case bob:
 			{
 				float fPercentOffset = Rage::FastSin( fPercentThroughEffect * Rage::PI * 2 );
-				tempState.pos += m_vEffectMagnitude * fPercentOffset;
+				m_current_with_effects.pos += m_vEffectMagnitude * fPercentOffset;
 			}
 			break;
 		case pulse:
@@ -647,11 +644,11 @@ void Actor::PreDraw() // calculate actor properties
 				float fMaxZoom = m_vEffectMagnitude.y;
 				float fPercentOffset = Rage::FastSin( fPercentThroughEffect * Rage::PI );
 				float fZoom = Rage::scale( fPercentOffset, 0.f, 1.f, fMinZoom, fMaxZoom );
-				tempState.scale *= fZoom;
+				m_current_with_effects.scale *= fZoom;
 
-				tempState.scale.x *= Rage::scale( fPercentOffset, 0.f, 1.f, m_effectColor1.r, m_effectColor2.r );
-				tempState.scale.y *= Rage::scale( fPercentOffset, 0.f, 1.f, m_effectColor1.g, m_effectColor2.g );
-				tempState.scale.z *= Rage::scale( fPercentOffset, 0.f, 1.f, m_effectColor1.b, m_effectColor2.b );
+				m_current_with_effects.scale.x *= Rage::scale( fPercentOffset, 0.f, 1.f, m_effectColor1.r, m_effectColor2.r );
+				m_current_with_effects.scale.y *= Rage::scale( fPercentOffset, 0.f, 1.f, m_effectColor1.g, m_effectColor2.g );
+				m_current_with_effects.scale.z *= Rage::scale( fPercentOffset, 0.f, 1.f, m_effectColor1.b, m_effectColor2.b );
 			}
 			break;
 		default:
@@ -664,28 +661,28 @@ void Actor::PreDraw() // calculate actor properties
 
 	if( m_internalDiffuse != Rage::Color(1, 1, 1, 1) )
 	{
-		if( m_pTempState != &tempState )
+		if( m_pTempState != &m_current_with_effects )
 		{
-			m_pTempState = &tempState;
-			tempState = m_current;
+			m_pTempState = &m_current_with_effects;
+			m_current_with_effects = m_current;
 		}
 
 		for( int i=0; i<NUM_DIFFUSE_COLORS; i++ )
 		{
-			tempState.diffuse[i] *= m_internalDiffuse;
+			m_current_with_effects.diffuse[i] *= m_internalDiffuse;
 		}
 	}
 
 	if( m_internalGlow.a > 0 )
 	{
-		if( m_pTempState != &tempState )
+		if( m_pTempState != &m_current_with_effects )
 		{
-			m_pTempState = &tempState;
-			tempState = m_current;
+			m_pTempState = &m_current_with_effects;
+			m_current_with_effects = m_current;
 		}
 
 		// Blend using Screen mode
-		tempState.glow = tempState.glow + m_internalGlow - m_internalGlow * tempState.glow;
+		m_current_with_effects.glow = m_current_with_effects.glow + m_internalGlow - m_internalGlow * m_current_with_effects.glow;
 	}
 }
 
@@ -756,12 +753,47 @@ void Actor::BeginDraw() // set the world matrix
 		DISPLAY->SkewY( m_pTempState->fSkewY );
 	}
 
+	if(!m_clickable_area.empty())
+	{
+		Rage::Matrix conversion;
+		// This feels wrong because it's not using the projection matrix, but it
+		// works.  Maybe it won't work on an Actor that is inside an ActorFrame
+		// with a non-default FOV set. -Kyz
+		// Using the projection matrix seemed to put all 4 resulting screen
+		// corners at nearly the same point. -Kyz
+		RageMatrixMultiply(&conversion, DISPLAY->GetViewTop(), DISPLAY->GetWorldTop());
+		for(size_t corner= 0; corner < m_clickable_area.size(); ++corner)
+		{
+			m_screen_clickable_area[corner]= m_clickable_area[corner].TransformCoords(conversion);
+		}
+	}
+
 	if( m_texTranslate.x != 0 || m_texTranslate.y != 0 )
 	{
 		DISPLAY->TexturePushMatrix();
 		DISPLAY->TextureTranslate( m_texTranslate.x, m_texTranslate.y );
 	}
 
+}
+
+void Actor::set_clickable_area(vector<Rage::Vector2> const& points)
+{
+	m_clickable_area= points;
+	m_screen_clickable_area.resize(m_clickable_area.size());
+}
+
+vector<Rage::Vector2> const& Actor::get_screen_clickable_area()
+{
+	return m_screen_clickable_area;
+}
+
+bool Actor::pos_in_clickable_area(float x, float y)
+{
+	if(m_screen_clickable_area.empty())
+	{
+		return false;
+	}
+	return point_inside_poly(x, y, m_screen_clickable_area);
 }
 
 void Actor::SetGlobalRenderStates()
@@ -2025,8 +2057,8 @@ public:
 	static int draworder( T* p, lua_State *L )		{ p->SetDrawOrder(IArg(1)); COMMON_RETURN_SELF; }
 	static int playcommand( T* p, lua_State *L )
 	{
-		if( !lua_istable(L, 2) && !lua_isnoneornil(L, 2) )
-			luaL_typerror( L, 2, "table or nil" );
+		// Things other than tables are useful. Forcing the themer to use a table
+		// wrapper just makes params more awkward. -Kyz
 
 		LuaReference ParamTable;
 		lua_pushvalue( L, 2 );
@@ -2192,6 +2224,51 @@ public:
 		p->Draw();
 		LUA->UnyieldLua();
 		COMMON_RETURN_SELF;
+	}
+	static int set_clickable_area(T* p, lua_State* L)
+	{
+		vector<Rage::Vector2> points;
+		if(lua_type(L, 1) == LUA_TTABLE)
+		{
+			size_t num_points= lua_objlen(L, 1);
+			points.resize(num_points);
+			for(size_t p= 0; p < num_points; ++p)
+			{
+				lua_rawgeti(L, 1, p+1);
+				int point_table= lua_gettop(L);
+				if(lua_type(L, point_table) == LUA_TTABLE)
+				{
+					lua_rawgeti(L, point_table, 1);
+					points[p].x= lua_tonumber(L, -1);
+					lua_rawgeti(L, point_table, 2);
+					points[p].y= lua_tonumber(L, -1);
+					lua_pop(L, 2);
+				}
+				lua_pop(L, 1);
+			}
+		}
+		p->set_clickable_area(points);
+		COMMON_RETURN_SELF;
+	}
+	static int get_screen_clickable_area(T* p, lua_State* L)
+	{
+		vector<Rage::Vector2> const& points= p->get_screen_clickable_area();
+		lua_createtable(L, points.size(), 0);
+		for(size_t p= 0; p < points.size(); ++p)
+		{
+			lua_createtable(L, 2, 0);
+			lua_pushnumber(L, points[p].x);
+			lua_rawseti(L, -2, 1);
+			lua_pushnumber(L, points[p].y);
+			lua_rawseti(L, -2, 2);
+			lua_rawseti(L, -2, p+1);
+		}
+		return 1;
+	}
+	static int pos_in_clickable_area(T* p, lua_State* L)
+	{
+		lua_pushboolean(L, p->pos_in_clickable_area(FArg(1), FArg(2)));
+		return 1;
 	}
 
 	LunaActor()
@@ -2369,6 +2446,10 @@ public:
 		ADD_METHOD( GetWrapperState );
 
 		ADD_METHOD( Draw );
+
+		ADD_METHOD(set_clickable_area);
+		ADD_METHOD(get_screen_clickable_area);
+		ADD_METHOD(pos_in_clickable_area);
 	}
 };
 

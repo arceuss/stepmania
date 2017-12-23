@@ -7,6 +7,7 @@
 #include <vector>
 #include <sstream>
 #include <cstring>
+#include <random>
 #include "LocalizedString.h"
 #include "RageMath.hpp"
 
@@ -18,6 +19,8 @@ class RageFileDriver;
 #define COPY(a,b) do { ASSERT(sizeof(a)==sizeof(b)); memcpy(&(a), &(b), sizeof(a)); } while( false )
 /** @brief Get the length of the array. */
 #define ARRAYLEN(a) (sizeof(a) / sizeof((a)[0]))
+
+extern const std::string CUSTOM_SONG_PATH;
 
 // TODO: Rename this to TryClamp or something a little more accurate
 // so as to not be confusing.
@@ -209,27 +212,29 @@ inline uint32_t Swap24LE( uint32_t n ) { return Swap24( n ); }
 inline uint16_t Swap16LE( uint16_t n ) { return Swap16( n ); }
 #endif
 
-struct MersenneTwister
-{
-	MersenneTwister( int iSeed = 0 ); // 0 = time()
-	int operator()(); // returns [0,2^31-1]
-	int operator()( int n ) // returns [0,n)
-	{
-		return (*this)() % n;
-	}
-
-	void Reset( int iSeed );
-
-private:
-	static int Temper( int iValue );
-	void GenerateValues();
-
-	int m_Values[624];
-	int m_iNext;
-};
-typedef MersenneTwister RandomGen;
+typedef std::mt19937 RandomGen;
 
 extern RandomGen g_RandomNumberGenerator;
+
+void seed_lua_prng();
+
+inline int random_up_to(RandomGen& rng, int limit)
+{
+	RandomGen::result_type res= rng();
+	// Cutting off the incomplete [0,n) chunk at the max value makes the result
+	// more evenly distributed. -Kyz
+	RandomGen::result_type up_to_max= RandomGen::max() - (RandomGen::max() % limit);
+	while(res > up_to_max)
+	{
+		res= rng();
+	}
+	return int(res % limit);
+}
+
+inline int random_up_to(int limit)
+{
+	return random_up_to(g_RandomNumberGenerator, limit);
+}
 
 /**
  * @brief Generate a random float between 0 inclusive and 1 exclusive.
@@ -237,7 +242,7 @@ extern RandomGen g_RandomNumberGenerator;
  */
 inline float RandomFloat()
 {
-	return g_RandomNumberGenerator() / 2147483648.0f;
+	return float(g_RandomNumberGenerator() / 4294967296.0);
 }
 
 /**
@@ -252,15 +257,15 @@ inline float RandomFloat( float fLow, float fHigh )
 }
 
 // Returns an integer between nLow and nHigh inclusive
-inline int RandomInt( int nLow, int nHigh )
+inline int RandomInt(int low, int high)
 {
-	return int( g_RandomNumberGenerator(nHigh - nLow + 1) + nLow );
+	return random_up_to(g_RandomNumberGenerator, high - low + 1) + low;
 }
 
 // Returns an integer between 0 and n-1 inclusive (replacement for rand() % n).
-inline int RandomInt( int n )
+inline int RandomInt(int n)
 {
-	return int( g_RandomNumberGenerator(n) );
+	return random_up_to(g_RandomNumberGenerator, n);
 }
 
 
@@ -345,6 +350,7 @@ struct tm GetLocalTime();
  * element will end up in Dir, not FName: "c:\games\stepmania\".
  * */
 void splitpath( const std::string &Path, std::string &Dir, std::string &Filename, std::string &Ext );
+std::string custom_songify_path(std::string const& path);
 
 std::string SetExtension( const std::string &path, const std::string &ext );
 std::string GetExtension( const std::string &sPath );

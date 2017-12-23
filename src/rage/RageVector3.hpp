@@ -17,6 +17,18 @@ public:
 	Vector3& operator *= (float rhs);
 	Vector3& operator /= (float rhs);
 
+	float& operator[](int i)
+	{
+		switch(i)
+		{
+			case 0: return x;
+			case 1: return y;
+			case 2: return z;
+			default: return x;
+		}
+		return x;
+	}
+
 	/** @brief Get a normalized version of the vector. */
 	Vector3 GetNormalized() const;
 
@@ -64,6 +76,13 @@ inline Vector3 operator/(Vector3 lhs, float rhs)
 {
 	lhs /= rhs;
 	return lhs;
+}
+
+inline void avg_vec3(Vector3 const& lhs, Vector3 const& rhs, Vector3& res)
+{
+	res.x= (lhs.x + rhs.x) * .5;
+	res.y= (lhs.y + rhs.y) * .5;
+	res.z= (lhs.z + rhs.z) * .5;
 }
 
 // Little known fact: There are two ways to multiply two vectors:
