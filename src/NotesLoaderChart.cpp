@@ -30,6 +30,31 @@
  songs can be directly ripped from any Guitar Hero or Rock Band game and be more accurate than PhaseShift.
  */
 
+NoteData parseNoteSection(std::istringstream iss) {
+   NoteData newNotes;
+   std::string line;
+   
+   while( std::getline(iss,line) )
+   {
+      // Remove tabs
+      line.erase(std::remove(line.begin(), line.end(), '\t'), line.end());
+      std::vector<std::string> vsWords;
+      std::istringstream lineIss(line);
+      // Separate by spaces
+      copy( std::istream_iterator<std::string>(lineIss), std::istream_iterator<std::string>(), back_inserter(vsWords) );
+   }
+   
+   return newNotes;
+}
+// TODO: something's still wrong, time for refactoring later
+
+void parseHeader(std::istringstream iss) {
+   
+}
+
+/* TODO: this needs lots of refactoring and extracting of methods and functionality.
+ * If I ever invent a time machine, I'm going to slap my past self for some of this code
+ */
 void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool parseSongInfo, std::string sFilePath )
 {
    bool bDontReadThis = false;
@@ -64,17 +89,14 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
    std::vector<std::string> headerInfo(3);
    
    // NoteData to store stuff that's being parsed
-   NoteData notedata;
+   NoteData *notedata = new NoteData();
    // TimingData to store other stuff being parsed
    TimingData timing;
    // Pointer to Steps that may or may not need to be added, depending on if we're parsing for a Song or not
    Steps* pNewNotes = NULL;
    
-   // Dunno if this will actually do anything, but it seems to be defaults put into SSC files for some reason?
-   timing.AddSegment(ComboSegment(0.0,1,1));
-   timing.AddSegment(ScrollSegment(0.0,1.0));
    // Set notedata tracks
-   notedata.SetNumTracks(6);
+   notedata->SetNumTracks(6);
    
    // Screw efficiency, just gonna parse this word by word like I was gonna do with Python
    std::string bufStr(buf);
@@ -118,13 +140,13 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
                if( parseSongInfo ) {
                   if( readingNotes ) {
                      pNewNotes->m_Timing = timing;
-                     pNewNotes->SetNoteData( notedata );
+                     pNewNotes->SetNoteData( *notedata );
                      pNewNotes->TidyUpData();
                      outSong.AddSteps( pNewNotes );
                      
                      // Reset notedata for new set of steps
-                     notedata = NoteData();
-                     notedata.SetNumTracks(6);
+                     notedata = new NoteData();
+                     notedata->SetNumTracks(6);
                   } else {
                      outSong.m_SongTiming = timing;
                   }
@@ -223,7 +245,11 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
                headerInfo[1] = wholeString.substr(1, wholeString.size()-2);
             } else if( !vsWords[i].compare("Offset") )
             {
-               timing.m_fBeat0OffsetInSeconds = -1 * atof(vsWords[i+2].c_str());
+               timing = TimingData(-1 * atof(vsWords[i+2].c_str()));
+               
+               // Dunno if this will actually do anything, but it seems to be defaults put into SSC files for some reason?
+               timing.AddSegment(ComboSegment(0.0,1,1));
+               timing.AddSegment(ScrollSegment(0.0,1.0));
             } else if( !vsWords[i].compare("Resolution") )
             {
                /* Here's the thing, bad charts have a default resolution of 192 ticks per beat. Comparatively, Stepmania uses
@@ -323,9 +349,14 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
             }
          } else if( iMode == 3 ) {
             // Parse section labels
+            // on good charts, this will only be the section title
+            // on bad charts, this will include a bunch of garbage too
             int end = vsWords.size()-1;
             std::string sectionTitle = vsWords[end].substr(0, vsWords[end].size()-1);
-            timing.AddSegment(LabelSegment(BeatToNoteRow(atof(vsWords[i].c_str())/resolution),sectionTitle));
+            // some charts have erroneous sections and that makes this annoying
+            if(sectionTitle.size() > 2) {
+               timing.AddSegment(LabelSegment(BeatToNoteRow(atof(vsWords[i].c_str())/resolution),sectionTitle));
+            }
          } else if( iMode == 4 ) {
             
             // Parse the notedata
@@ -341,27 +372,27 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
                   TapNote tn = TAP_EMPTY;
                   
                   for( int l=0; l<5; l++ ) {
-                     tn = notedata.GetTapNote(l, BeatToNoteRow((float)iLastForcedRow/resolution));
+                     tn = notedata->GetTapNote(l, BeatToNoteRow((float)iLastForcedRow/resolution));
                      
                      if( tn.type == TapNoteType_Gem || tn.type == TapNoteType_GemHold )
                      {
                         if( tn.iDuration )
                         {
-                           notedata.AddHoldNote(l, BeatToNoteRow((float)iLastForcedRow/resolution),
+                           notedata->AddHoldNote(l, BeatToNoteRow((float)iLastForcedRow/resolution),
                                     BeatToNoteRow((float)iLastForcedRow/resolution)+tn.iDuration, TAP_ORIGINAL_HOPO_HOLD);
                         } else
                         {
-                           notedata.SetTapNote(l, BeatToNoteRow((float)iLastForcedRow/resolution), TAP_ORIGINAL_HOPO);
+                           notedata->SetTapNote(l, BeatToNoteRow((float)iLastForcedRow/resolution), TAP_ORIGINAL_HOPO);
                         }
                      } else if( tn.type == TapNoteType_HOPO || tn.type == TapNoteType_HOPOHold )
                      {
                         if( tn.iDuration )
                         {
-                           notedata.AddHoldNote(l, BeatToNoteRow((float)iLastForcedRow/resolution),
+                           notedata->AddHoldNote(l, BeatToNoteRow((float)iLastForcedRow/resolution),
                                        BeatToNoteRow((float)iLastForcedRow/resolution)+tn.iDuration, TAP_ORIGINAL_GEM_HOLD);
                         } else
                         {
-                           notedata.SetTapNote(l, BeatToNoteRow((float)iLastForcedRow/resolution), TAP_ORIGINAL_GEM);
+                           notedata->SetTapNote(l, BeatToNoteRow((float)iLastForcedRow/resolution), TAP_ORIGINAL_GEM);
                         }
                      }
                   }
@@ -376,16 +407,16 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
                   TapNote tn = TAP_EMPTY;
                   
                   for( int l=0; l<5; l++ ) {
-                     tn = notedata.GetTapNote(l, BeatToNoteRow((float)iLastTapRow/resolution));
+                     tn = notedata->GetTapNote(l, BeatToNoteRow((float)iLastTapRow/resolution));
                      
                      if( tn != TAP_EMPTY ) {
                         if( tn.iDuration )
                         {
-                           notedata.AddHoldNote(l, BeatToNoteRow((float)iLastTapRow/resolution),
+                           notedata->AddHoldNote(l, BeatToNoteRow((float)iLastTapRow/resolution),
                                        BeatToNoteRow((float)iLastForcedRow/resolution)+tn.iDuration, TAP_ORIGINAL_HOLD_HEAD);
                         } else
                         {
-                           notedata.SetTapNote(l, BeatToNoteRow((float)iLastTapRow/resolution), TAP_ORIGINAL_TAP);
+                           notedata->SetTapNote(l, BeatToNoteRow((float)iLastTapRow/resolution), TAP_ORIGINAL_TAP);
                         }
                      }
                   }
@@ -408,27 +439,27 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
                   TapNote tn = TAP_EMPTY;
                   
                   for( int l=0; l<5; l++ ) {
-                     tn = notedata.GetTapNote(l, BeatToNoteRow((float)iLastForcedRow/resolution));
+                     tn = notedata->GetTapNote(l, BeatToNoteRow((float)iLastForcedRow/resolution));
                      
                      if( tn.type == TapNoteType_Gem || tn.type == TapNoteType_GemHold )
                      {
                         if( tn.iDuration )
                         {
-                           notedata.AddHoldNote(l, BeatToNoteRow((float)iLastForcedRow/resolution),
+                           notedata->AddHoldNote(l, BeatToNoteRow((float)iLastForcedRow/resolution),
                                        BeatToNoteRow((float)iLastForcedRow/resolution)+tn.iDuration, TAP_ORIGINAL_HOPO_HOLD);
                         } else
                         {
-                           notedata.SetTapNote(l, BeatToNoteRow((float)iLastForcedRow/resolution), TAP_ORIGINAL_HOPO);
+                           notedata->SetTapNote(l, BeatToNoteRow((float)iLastForcedRow/resolution), TAP_ORIGINAL_HOPO);
                         }
                      } else if( tn.type == TapNoteType_HOPO || tn.type == TapNoteType_HOPOHold )
                      {
                         if( tn.iDuration )
                         {
-                           notedata.AddHoldNote(l, BeatToNoteRow((float)iLastForcedRow/resolution),
+                           notedata->AddHoldNote(l, BeatToNoteRow((float)iLastForcedRow/resolution),
                                        BeatToNoteRow((float)iLastForcedRow/resolution)+tn.iDuration, TAP_ORIGINAL_GEM_HOLD);
                         } else
                         {
-                           notedata.SetTapNote(l, BeatToNoteRow((float)iLastForcedRow/resolution), TAP_ORIGINAL_GEM);
+                           notedata->SetTapNote(l, BeatToNoteRow((float)iLastForcedRow/resolution), TAP_ORIGINAL_GEM);
                         }
                      }
                   }
@@ -446,21 +477,21 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
                
                if( iPrevNoteLength[iNoteTrack] + iPrevNoteMark[iNoteTrack] + 1 >= iNoteMark ) {
                   // sustain note correction
-                  notedata.SetTapNote(iNoteTrack, BeatToNoteRow((float)iPrevNoteMark[iNoteTrack]/resolution), TAP_EMPTY);
+                  notedata->SetTapNote(iNoteTrack, BeatToNoteRow((float)iPrevNoteMark[iNoteTrack]/resolution), TAP_EMPTY);
                   iPrevNoteLength[iNoteTrack] = iNoteMark - iPrevNoteMark[iNoteTrack] - (resolution / 8);
                   
                   if( !bPrevNoteHOPO[iNoteTrack] ) {
                      if( iPrevNoteLength[iNoteTrack] > 0 )
-                        notedata.AddHoldNote(iNoteTrack, BeatToNoteRow((float)iPrevNoteMark[iNoteTrack]/resolution),
+                        notedata->AddHoldNote(iNoteTrack, BeatToNoteRow((float)iPrevNoteMark[iNoteTrack]/resolution),
                                              BeatToNoteRow((float)(iPrevNoteMark[iNoteTrack]+iPrevNoteLength[iNoteTrack])/resolution), TAP_ORIGINAL_GEM_HOLD);
                      else
-                        notedata.SetTapNote(iNoteTrack, BeatToNoteRow((float)iPrevNoteMark[iNoteTrack]/resolution), TAP_ORIGINAL_GEM);
+                        notedata->SetTapNote(iNoteTrack, BeatToNoteRow((float)iPrevNoteMark[iNoteTrack]/resolution), TAP_ORIGINAL_GEM);
                   } else {
                      if( iPrevNoteLength[iNoteTrack] > 0 )
-                        notedata.AddHoldNote(iNoteTrack, BeatToNoteRow((float)iPrevNoteMark[iNoteTrack]/resolution),
+                        notedata->AddHoldNote(iNoteTrack, BeatToNoteRow((float)iPrevNoteMark[iNoteTrack]/resolution),
                                              BeatToNoteRow((float)(iPrevNoteMark[iNoteTrack]+iPrevNoteLength[iNoteTrack])/resolution), TAP_ORIGINAL_HOPO_HOLD);
                      else
-                        notedata.SetTapNote(iNoteTrack, BeatToNoteRow((float)iPrevNoteMark[iNoteTrack]/resolution), TAP_ORIGINAL_HOPO);
+                        notedata->SetTapNote(iNoteTrack, BeatToNoteRow((float)iPrevNoteMark[iNoteTrack]/resolution), TAP_ORIGINAL_HOPO);
                   }
                }
                
@@ -474,11 +505,11 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
                      
                      if( iPrevNoteLength[k] ) // Previous note was a hold
                      {
-                        notedata.AddHoldNote(iPrevNoteTrack, BeatToNoteRow((float)iPrevNoteMark[k]/resolution),
+                        notedata->AddHoldNote(iPrevNoteTrack, BeatToNoteRow((float)iPrevNoteMark[k]/resolution),
                                              BeatToNoteRow((float)(iPrevNoteMark[k]+iPrevNoteLength[k])/resolution), TAP_ORIGINAL_GEM_HOLD);
                      } else
                      {
-                        notedata.SetTapNote(iPrevNoteTrack, BeatToNoteRow((float)iPrevNoteMark[k]/resolution), TAP_ORIGINAL_GEM);
+                        notedata->SetTapNote(iPrevNoteTrack, BeatToNoteRow((float)iPrevNoteMark[k]/resolution), TAP_ORIGINAL_GEM);
                      }
 
                      bPrevNoteHOPO[k] = false;
@@ -490,11 +521,11 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
                {
                   if( iNoteLength )
                   {
-                     notedata.AddHoldNote(iNoteTrack, BeatToNoteRow((float)iNoteMark/resolution),
+                     notedata->AddHoldNote(iNoteTrack, BeatToNoteRow((float)iNoteMark/resolution),
                                           BeatToNoteRow((float)(iNoteMark+iNoteLength)/resolution), TAP_ORIGINAL_HOLD_HEAD);
                   } else
                   {
-                     notedata.SetTapNote(iNoteTrack, BeatToNoteRow((float)iNoteMark/resolution), TAP_ORIGINAL_TAP);
+                     notedata->SetTapNote(iNoteTrack, BeatToNoteRow((float)iNoteMark/resolution), TAP_ORIGINAL_TAP);
                   }
                   bPrevNoteHOPO[iNoteTrack] = false;
                }
@@ -535,11 +566,11 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
                   {
                      if( iNoteLength )
                      {
-                        notedata.AddHoldNote(iNoteTrack, BeatToNoteRow((float)iNoteMark/resolution),
+                        notedata->AddHoldNote(iNoteTrack, BeatToNoteRow((float)iNoteMark/resolution),
                                              BeatToNoteRow((float)(iNoteMark+iNoteLength)/resolution), TAP_ORIGINAL_HOPO_HOLD);
                      } else
                      {
-                        notedata.SetTapNote(iNoteTrack, BeatToNoteRow((float)iNoteMark/resolution), TAP_ORIGINAL_HOPO);
+                        notedata->SetTapNote(iNoteTrack, BeatToNoteRow((float)iNoteMark/resolution), TAP_ORIGINAL_HOPO);
                      }
                      bPrevNoteHOPO[iNoteTrack] = true;
                   }
@@ -549,11 +580,11 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
                   {
                      if( iNoteLength )
                      {
-                        notedata.AddHoldNote(iNoteTrack, BeatToNoteRow((float)iNoteMark/resolution),
+                        notedata->AddHoldNote(iNoteTrack, BeatToNoteRow((float)iNoteMark/resolution),
                                              BeatToNoteRow((float)(iNoteMark+iNoteLength)/resolution), TAP_ORIGINAL_GEM_HOLD);
                      } else
                      {
-                        notedata.SetTapNote(iNoteTrack, BeatToNoteRow((float)iNoteMark/resolution),TAP_ORIGINAL_GEM);
+                        notedata->SetTapNote(iNoteTrack, BeatToNoteRow((float)iNoteMark/resolution),TAP_ORIGINAL_GEM);
                      }
                      bPrevNoteHOPO[iNoteTrack] = false;
                   }
@@ -570,14 +601,14 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
    // If we reached the end of the file while still reading notes, add them to the song, if we're parsing that
    if( parseSongInfo && readingNotes ) {
       pNewNotes->m_Timing = timing;
-      pNewNotes->SetNoteData( notedata );
+      pNewNotes->SetNoteData( *notedata );
       pNewNotes->TidyUpData();
       outSong.AddSteps(pNewNotes);
    }
    if( !parseSongInfo )
    {
       outSteps.m_Timing = timing;
-      outSteps.SetNoteData( notedata );
+      outSteps.SetNoteData( *notedata );
       outSteps.TidyUpData();
    }
 }
@@ -609,7 +640,11 @@ bool ReadFile( std::string sNewPath, Song &outSong, Steps &outSteps, bool parseS
    
    ReadBuf( FileString.c_str(), iBytesRead, tempSong, tempSteps, parseSongInfo, sBasePath );
    
+   // TODO: can the above operation fail somehow? Return false if it does
+   return true;
+   
    /* This totally works, but it doesn't work if I just call ReadBuf with the output files */
+   /*
    NotesWriterSSC::Write(sscFile, tempSong, tempSong.GetAllSteps(), false);
    
    SSCLoader loaderSSC;
@@ -619,6 +654,7 @@ bool ReadFile( std::string sNewPath, Song &outSong, Steps &outSteps, bool parseS
    } else {
       return loaderSSC.LoadNoteDataFromSimfile(sNewPath, outSteps);
    }
+    */
 }
 
 void CHARTLoader::GetApplicableFiles( const std::string &sPath, std::vector<std::string> &out )

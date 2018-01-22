@@ -9,233 +9,333 @@
 #include "RageLog.h"
 #include "RageUtil.h"
 
-void MidiFile::AddParam( const char *buf, int len )
-{
-   values.back().params.push_back( std::string(buf, len) );
-}
 
-void MidiFile::AddValue() /* (no extra charge) */
-{
-   values.push_back( value_t() );
-   values.back().params.reserve( 32 );
-}
-
-/**
- TODO: 
- -AddTrack,
- -RenameTrack,
- -AddEvent,
- -CreateEvent,
- ReadBuf
- -GetEvent
- 
- Delete old functions
- Modify readfile
+/* Function to read variable length values in files
+ * This function will not change the original pointer
+ * @param pBuffer - pointer to where the variable length value begins
+ * @returns The value stored in the variable length value
  */
-
-void MidiFile::AddTrack( midi_track track )
+uint32 ReadVarLen(const char *&pBuffer)
 {
-   tracks.push_back(track);
-}
-
-void MidiFile::RenameTrack( midi_track track, const char *name )
-{
-   track.name = name;
-}
-
-void MidiFile::AddEvent( midi_track track, midi_event event )
-{
-   track.events.push_back(event);
-}
-
-MidiFile::midi_event MidiFile::CreateEvent( Midi_EventType type, int delta, int total, std::vector<uint8_t> payload )
-{
-   midi_event newEvent = midi_event();
-   newEvent.delta_time = delta;
-   newEvent.total_time = total;
-   newEvent.type = type;
-   newEvent.payload = payload;
-   return newEvent;
-}
-
-bool MidiFileReadBuf( const char *buf, int len )
-{
-   /**
-    * Need to do:
-    * Open file and read byte by byte
-    * parse header and such 
-    * yadda yadda through the events
-    */
+   uint32 value = *pBuffer;
+   uint8 c;
    
-   /**
-    FF 51 = BPM change
-       xth byte = length
-       take next 3(?) convert to decimal, divide 6000000 by that to find BPM
-    FF 58 = TimeSignature Change
-       xth bytes are len
-       next byte is numerator
-       third is denominator (always 4 for RB / GH, but read it for other uses
-    */
-   return false;
-}
-
-// leftover cruft
-void MidiFile::ReadBuf( const char *buf, int len, bool bUnescape )
-{
-   values.reserve( 64 );
-   
-   bool ReadingValue=false;
-   int i = 0;
-   char *cProcessed = new char[len];
-   int iProcessedLen = -1;
-   while( i < len )
+   // the first bit marks continuation, actual value is stored in next 7 bits
+   // and possibly the last 7 bits of the next byte if the continue flag is set
+   // and so on
+   if(value & 0x80)
    {
-      if( i+1 < len && buf[i] == '/' && buf[i+1] == '/' )
+      value &= 0x7F; // mask out the continue flag
+      do
       {
-         /* Skip a comment entirely; don't copy the comment to the value/parameter */
-         do
-         {
-            i++;
-         } while( i < len && buf[i] != '\n' );
-         
-         continue;
+         pBuffer++;    // increment the buffer marker
+         c = *pBuffer;
+         value = (value << 7) + (c & 0x7F);
+      } while(c & 0x80);   // while there's still a continue flag
+   }
+   pBuffer++; // increment to point at the next byte after varlength
+   
+   return value;
+}
+
+/* Function to compare values at a pointer to a string of chars
+ * Used to determine the validity of a midi file
+ * @param pBuffer - pointer to the buffer to compare
+ * @param str - the string to compare the values read to
+ * @returns True if str matches the first characters in pBuffer, False otherwise
+ */
+bool CompareToString(const char *&pBuffer, std::string str)
+{
+   uint8 len = str.length();
+   std::string bufStr (pBuffer, len);
+   return str.compare(bufStr) == 0;
+}
+
+/* Constructor for MidiFile class */
+MidiFile::MidiFile(void) {}
+
+/* Destructor for MidiFile class */
+MidiFile::~MidiFile(void) {
+   
+}
+
+// see this:
+// http://stackoverflow.com/questions/6043689/c-what-is-pointer-new-type-as-oppose-to-pointer-new-type
+// should probably do something similar for the pointer to pointers of midievents
+
+
+/// TODO: All below
+/* Loads a mid file in to a MidiFile object
+ * @param pFile - pointer to the start of the midi file
+ * @param size - size of the file in bytes
+ * @returns MidiFile object with the information from the mid file
+ */
+MIDIFile* LoadMidiFromFile(const char *pFile, size_t size)
+{
+   if(!size)
+      pFile = MFFileSystem_Load(pFile, &size);
+   
+   if(!pFile)
+      return NULL;
+   
+   const char *pOffset = pFile;
+   
+   // "RIFF" is a (useless) wrapper sometimes applied to midis
+   if(CompareToString(pFile, "RIFF"))
+   {
+      pOffset += 8;
+      // if the next bytes are not "RMID", it is not a midi file
+      if(CompareToString(pFile, "RMID"))
+      {
+         return NULL;
       }
+      pOffset += 4;
+   }
+   
+   Header_Chunk *pHd = (Header_Chunk*)pOffset;
+   // if the midi header is not found, it is not a midi file
+   if(CompareToString(pFile, "MThd"))
+   {
+      return NULL;
+   }
+   
+   // I'm going to assume endianness is not a problem...
+   //MFEndian_BigToHost(&pHd->length);
+   //MFEndian_BigToHost(&pHd->format);
+   //MFEndian_BigToHost(&pHd->numTracks);
+   //MFEndian_BigToHost(&pHd->ticksPerBeat);
+   
+   MIDIFile *pMidiFile = new MidiFile();
+   
+   pMidiFile->name[0] = 0;
+   pMidiFile->format = pHd->format;
+   pMidiFile->ticksPerBeat = pHd->ticksPerBeat;
+   pMidiFile->numTracks = pHd->numTracks;
+   pMidiFile->tracks.resize(pHd->numTracks);
+   
+   // we will only deal with type 1 midi files here..
+   //MFDebug_Assert(pHd->format == 1, "Invalid midi type.");
+   
+   pOffset += 8 + pHd->length;
+   
+   for(int t = 0; t < pMidiFile->numTracks && pOffset < pFile + size; ++t)
+   {
+      Track_Chunk track;
+      memcpy(&track.signature, pOffset, sizeof(track.id));
+      pOffset += sizeof(track.signature);
+      memcpy(&track.length, pOffset, sizeof(track.length));
+      pOffset += sizeof(track.length);
+      /// TODO: Necessary?
+      //MFEndian_BigToHost(&track.length);
       
-      if( ReadingValue && buf[i] == '#' )
+      /// TODO: is this valid? uint32 compare?
+      if(CompareToString(track.signature, "MTrk"))
       {
-         /* Unfortunately, many of these files are missing ;'s.
-          * If we get a # when we thought we were inside a value, assume we
-          * missed the ;.  Back up and end the value. */
-         // Make sure this # is the first non-whitespace character on the line.
-         bool FirstChar = true;
-         int j = iProcessedLen;
-         while( j > 0 && cProcessed[j - 1] != '\r' && cProcessed[j - 1] != '\n' )
+         const char *pTrk = pOffset;
+         uint32 tick = 0;
+         
+         while(pTrk < pOffset + track.length)
          {
-            if( cProcessed[j - 1] == ' ' || cProcessed[j - 1] == '\t' )
+            uint32 delta = ReadVarLen(pTrk);
+            tick += delta;
+            uint8 status = *(uint8*)pTrk++;
+            
+            MidiEvent *pEvent = NULL;
+            
+            if(status == MidiEventType::MidiEvent_Meta)
             {
-               --j;
-               continue;
+               // meta event
+               uint8 type = *(uint8*)pTrk++;
+               uint32 bytes = ReadVarLen(pTrk);
+               
+               // read event
+               switch(type)
+               {
+                  case MidiMeta_SequenceNumber:
+                  {
+                     static int sequence = 0;
+                     
+                     /// TODO: change to alloc
+                     MIDIEvent_SequenceNumber *pSeq = (MIDIEvent_SequenceNumber*)MFHeap_Alloc(sizeof(MIDIEvent_SequenceNumber));
+                     pEvent = pSeq;
+                     
+                     if(!bytes)
+                        pSeq->sequence = sequence++;
+                     else
+                     {
+                        uint16 seq;
+                        /// TODO: change to memcopy
+                        MFCopyMemory(&seq, pTrk, 2);
+                        /// TODO: ???
+                        //MFEndian_BigToHost(&seq);
+                        pSeq->sequence = (int)seq;
+                     }
+                     break;
+                  }
+                  case MidiMeta_Text:
+                  case MidiMeta_Copyright:
+                  case MidiMeta_TrackName:
+                  case MidiMeta_Instrument:
+                  case MidiMeta_Lyric:
+                  case MidiMeta_Marker:
+                  case MidiMeta_CuePoint:
+                  case MidiMeta_PatchName:
+                  case MidiMeta_PortName:
+                  {
+                     /// TODO: malloc
+                     MIDIEvent_Text *pText = (MIDIEvent_Text*)MFHeap_Alloc(sizeof(MIDIEvent_Text));
+                     pEvent = pText;
+                     /// TODO: memcopy
+                     MFCopyMemory(pText->buffer, pTrk, bytes);
+                     pText->buffer[bytes] = 0;
+                     break;
+                  }
+                  case MidiMeta_EndOfTrack:
+                  {
+                     /// TODO: malloc
+                     MIDIEvent *pE = (MIDIEvent*)MFHeap_Alloc(sizeof(MIDIEvent));
+                     pEvent = pE;
+                     pTrk = pOffset + track.length;
+                     break;
+                  }
+                  case MidiMeta_Tempo:
+                  {
+                     /// TODO: malloc
+                     MIDIEvent_Tempo *pTempo = (MIDIEvent_Tempo*)MFHeap_Alloc(sizeof(MIDIEvent_Tempo));
+                     pEvent = pTempo;
+                     pTempo->microsecondsPerBeat = ((uint8*)pTrk)[0] << 16;
+                     pTempo->microsecondsPerBeat |= ((uint8*)pTrk)[1] << 8;
+                     pTempo->microsecondsPerBeat |= ((uint8*)pTrk)[2];
+                     pTempo->BPM = 60000000.0f/(float)pTempo->microsecondsPerBeat;
+                     break;
+                  }
+                  case MidiMeta_SMPTE:
+                  {
+                     /// TODO: malloc
+                     MIDIEvent_SMPTE *pSMPTE = (MIDIEvent_SMPTE*)MFHeap_Alloc(sizeof(MIDIEvent_SMPTE));
+                     pEvent = pSMPTE;
+                     pSMPTE->hours = ((uint8*)pTrk)[0];
+                     pSMPTE->minutes = ((uint8*)pTrk)[1];
+                     pSMPTE->seconds = ((uint8*)pTrk)[2];
+                     pSMPTE->frames = ((uint8*)pTrk)[3];
+                     pSMPTE->subFrames = ((uint8*)pTrk)[4];
+                     break;
+                  }
+                  case MidiMeta_TimeSignature:
+                  {
+                     /// TODO: malloc
+                     MIDIEvent_TimeSignature *pTS = (MIDIEvent_TimeSignature*)MFHeap_Alloc(sizeof(MIDIEvent_TimeSignature));
+                     pEvent = pTS;
+                     pTS->numerator = ((uint8*)pTrk)[0];
+                     pTS->denominator = ((uint8*)pTrk)[1];
+                     pTS->clocks = ((uint8*)pTrk)[2];
+                     pTS->d = ((uint8*)pTrk)[3];
+                     break;
+                  }
+                  case MidiMeta_KeySignature:
+                  {
+                     /// TODO: malloc
+                     MIDIEvent_KeySignature *pKS = (MIDIEvent_KeySignature*)MFHeap_Alloc(sizeof(MIDIEvent_KeySignature));
+                     pEvent = pKS;
+                     pKS->sf = ((uint8*)pTrk)[0];
+                     pKS->minor = ((uint8*)pTrk)[1];
+                     break;
+                  }
+                  case MidiMeta_Custom:
+                  {
+                     /// TODO: malloc maybe make a function?... probably no...
+                     MIDIEvent_Custom *pCustom = (MIDIEvent_Custom*)MFHeap_Alloc(sizeof(MIDIEvent_Custom));
+                     pEvent = pCustom;
+                     pCustom->pData = pTrk;
+                     pCustom->size = bytes;
+                     break;
+                  }
+               }
+               
+               if(pEvent)
+                  pEvent->subType = type;
+               
+               pTrk += bytes;
+            }
+            /// TODO: comments, what is going on here????
+            else if(status == MidiEventType::MidiEvent_SYSEX || status == MidiEventType::MidiEvent_SYSEX2)
+            {
+               uint32 bytes = ReadVarLen(pTrk);
+               
+               // SYSEX event...
+               //MFDebug_Log(2, "Encountered SYSEX event...");
+               
+               pTrk += bytes;
+            }
+            else
+            {
+               static int lastStatus = 0;
+               
+               if(status < 0x80)
+               {
+                  --pTrk;
+                  status = lastStatus;
+               }
+               
+               lastStatus = status;
+               
+               int eventType = status&0xF0;
+               
+               int param1 = ReadVarLen(pTrk);
+               int param2 = 0;
+               /// TODO: Why is this here? what does it do?
+               if(eventType != MidiNote_ProgramChange && eventType != MidiNote_ChannelAfterTouch)
+                  param2 = ReadVarLen(pTrk);
+               
+               switch(eventType)
+               {
+                  case MidiNote_NoteOn:
+                  case MidiNote_NoteOff:
+                  {
+                     /// TODO: malloc
+                     MidiEvent_Note *pNote = (MIDIEvent_Note*)MFHeap_Alloc(sizeof(MIDIEvent_Note));
+                     pEvent = pNote;
+                     pNote->event = status&0xF0;
+                     pNote->channel = status&0x0F;
+                     pNote->note = param1;
+                     pNote->velocity = param2;
+                     break;
+                  }
+               }
+               
+               if(pEvent)
+               {
+                  pEvent->subType = status;
+                  status = MidiEvent_Note;
+               }
             }
             
-            FirstChar = false;
-            break;
+            // append event to track
+            if(pEvent)
+            {
+               pEvent->tick = tick;
+               pEvent->delta = delta;
+               pEvent->type = status;
+               pEvent->pNext = NULL;
+               
+               MidiEvent *pEv = pMidiFile->tracks[t];
+               
+               if(!pEv)
+               {
+                  pMidiFile->tracks[t] = pEvent;
+               }
+               else
+               {
+                  while(pEv->pNext)
+                     pEv = pEv->pNext;
+                  pEv->pNext = pEvent;
+               }
+            }
          }
-         
-         if( !FirstChar )
-         {
-            /* We're not the first char on a line.  Treat it as if it were a normal character. */
-            cProcessed[iProcessedLen++] = buf[i++];
-            continue;
-         }
-         
-         /* Skip newlines and whitespace before adding the value. */
-         iProcessedLen = j;
-         while( iProcessedLen > 0 &&
-               ( cProcessed[iProcessedLen - 1] == '\r' || cProcessed[iProcessedLen - 1] == '\n' ||
-                cProcessed[iProcessedLen - 1] == ' ' || cProcessed[iProcessedLen - 1] == '\t' ) )
-            --iProcessedLen;
-         
-         AddParam( cProcessed, iProcessedLen );
-         iProcessedLen = 0;
-         ReadingValue=false;
       }
       
-      /* # starts a new value. */
-      if( !ReadingValue && buf[i] == '#' )
-      {
-         AddValue();
-         ReadingValue=true;
-      }
-      
-      if( !ReadingValue )
-      {
-         if( bUnescape && buf[i] == '\\' )
-            i += 2;
-         else
-            ++i;
-         continue; /* nothing else is meaningful outside of a value */
-      }
-      
-      /* : and ; end the current param, if any. */
-      if( iProcessedLen != -1 && (buf[i] == ':' || buf[i] == ';') )
-         AddParam( cProcessed, iProcessedLen );
-      
-      /* # and : begin new params. */
-      if( buf[i] == '#' || buf[i] == ':' )
-      {
-         ++i;
-         iProcessedLen = 0;
-         continue;
-      }
-      
-      /* ; ends the current value. */
-      if( buf[i] == ';' )
-      {
-         ReadingValue=false;
-         ++i;
-         continue;
-      }
-      
-      /* We've gone through all the control characters.  All that is left is either an escaped character,
-       * ie \#, \\, \:, etc., or a regular character. */
-      if( bUnescape && i < len && buf[i] == '\\' )
-         ++i;
-      if( i < len )
-      {
-         cProcessed[iProcessedLen++] = buf[i++];
-      }
+      pOffset += track.length;
    }
    
-   /* Add any unterminated value at the very end. */
-   if( ReadingValue )
-      AddParam( cProcessed, iProcessedLen );
-   
-   delete [] cProcessed;
-}
-
-// returns true if successful, false otherwise
-bool MidiFile::ReadFile( std::string sNewPath, bool bUnescape )
-{
-   error = "";
-   
-   RageFile f;
-   /* Open a file. */
-   if( !f.Open( sNewPath ) )
-   {
-      error = f.GetError();
-      return false;
-   }
-   
-   // allocate a string to hold the file
-   std::string FileString;
-   FileString.reserve( f.GetFileSize() );
-   
-   int iBytesRead = f.Read( FileString );
-   if( iBytesRead == -1 )
-   {
-      error = f.GetError();
-      return false;
-   }
-   
-   ReadBuf( FileString.c_str(), iBytesRead, bUnescape );
-   
-   return true;
-}
-
-void MidiFile::ReadFromString( const std::string &sString, bool bUnescape )
-{
-   ReadBuf( sString.c_str(), sString.size(), bUnescape );
-}
-
-std::string MidiFile::GetParam(unsigned val, unsigned par) const
-{
-   if( val >= GetNumValues() || par >= GetNumParams(val) )
-      return std::string();
-   
-   return values[val].params[par];
-}
-
-MidiFile::midi_event MidiFile::GetEvent( unsigned track, unsigned evt ) const
-{
-   return tracks[track].events[evt];
+   return pMidiFile;
 }
