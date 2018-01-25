@@ -8,6 +8,10 @@
 #include "RageFile.h"
 #include "RageLog.h"
 #include "RageUtil.h"
+#include <string>
+#include <fstream>
+#include <stdint.h>
+
 
 
 /* Function to read variable length values in files
@@ -15,10 +19,10 @@
  * @param pBuffer - pointer to where the variable length value begins
  * @returns The value stored in the variable length value
  */
-uint32 ReadVarLen(const char *&pBuffer)
+uint32_t ReadVarLen(const char *&pBuffer)
 {
-   uint32 value = *pBuffer;
-   uint8 c;
+   uint32_t value = *pBuffer;
+   uint8_t c;
    
    // the first bit marks continuation, actual value is stored in next 7 bits
    // and possibly the last 7 bits of the next byte if the continue flag is set
@@ -44,11 +48,31 @@ uint32 ReadVarLen(const char *&pBuffer)
  * @param str - the string to compare the values read to
  * @returns True if str matches the first characters in pBuffer, False otherwise
  */
-bool CompareToString(const char *&pBuffer, std::string str)
+template <typename midY>
+bool CompareToString(midY *pBuffer, std::string str)
 {
-   uint8 len = str.length();
-   std::string bufStr (pBuffer, len);
+   uint8_t len = str.length();
+   const char *tempPtr = (const char*)pBuffer;
+   std::string bufStr (tempPtr, len);
    return str.compare(bufStr) == 0;
+}
+
+/* Function used to swap the bytes around so they are in the correct endianness
+ * This function changes the pointer it was passed to point to a new variable
+ * @param pBytes - pointer to the bytes to flip
+ */
+template <typename midT>
+void FlipEndianness(midT *pBytes)
+{
+   size_t tempSize = sizeof(midT);
+   char holder[tempSize];
+   char *tempData = (char*)pBytes;
+   
+   for (int i = 0; i < tempSize; i++) {
+      holder[i] = tempData[tempSize - 1 - i];
+   }
+   
+   *pBytes = *(midT*)holder;
 }
 
 /* Constructor for MidiFile class */
@@ -59,22 +83,13 @@ MidiFile::~MidiFile(void) {
    
 }
 
-// see this:
-// http://stackoverflow.com/questions/6043689/c-what-is-pointer-new-type-as-oppose-to-pointer-new-type
-// should probably do something similar for the pointer to pointers of midievents
-
-
-/// TODO: All below
 /* Loads a mid file in to a MidiFile object
  * @param pFile - pointer to the start of the midi file
  * @param size - size of the file in bytes
  * @returns MidiFile object with the information from the mid file
  */
-MIDIFile* LoadMidiFromFile(const char *pFile, size_t size)
+MidiFile* ParseMidi(const char *pFile, size_t size)
 {
-   if(!size)
-      pFile = MFFileSystem_Load(pFile, &size);
-   
    if(!pFile)
       return NULL;
    
@@ -85,27 +100,27 @@ MIDIFile* LoadMidiFromFile(const char *pFile, size_t size)
    {
       pOffset += 8;
       // if the next bytes are not "RMID", it is not a midi file
-      if(CompareToString(pFile, "RMID"))
+      if(!CompareToString(pFile, "RMID"))
       {
          return NULL;
       }
       pOffset += 4;
    }
    
-   Header_Chunk *pHd = (Header_Chunk*)pOffset;
+   MidiFile::Header_Chunk *pHd = (MidiFile::Header_Chunk*)pOffset;
    // if the midi header is not found, it is not a midi file
-   if(CompareToString(pFile, "MThd"))
+   if(!CompareToString(pFile, "MThd"))
    {
       return NULL;
    }
    
-   // I'm going to assume endianness is not a problem...
-   //MFEndian_BigToHost(&pHd->length);
-   //MFEndian_BigToHost(&pHd->format);
-   //MFEndian_BigToHost(&pHd->numTracks);
-   //MFEndian_BigToHost(&pHd->ticksPerBeat);
+   // Reverse the endian bytes of data
+   FlipEndianness(&pHd->length);
+   FlipEndianness(&pHd->format);
+   FlipEndianness(&pHd->numTracks);
+   FlipEndianness(&pHd->ticksPerBeat);
    
-   MIDIFile *pMidiFile = new MidiFile();
+   MidiFile *pMidiFile = new MidiFile();
    
    pMidiFile->name[0] = 0;
    pMidiFile->format = pHd->format;
@@ -113,138 +128,123 @@ MIDIFile* LoadMidiFromFile(const char *pFile, size_t size)
    pMidiFile->numTracks = pHd->numTracks;
    pMidiFile->tracks.resize(pHd->numTracks);
    
-   // we will only deal with type 1 midi files here..
-   //MFDebug_Assert(pHd->format == 1, "Invalid midi type.");
-   
    pOffset += 8 + pHd->length;
    
    for(int t = 0; t < pMidiFile->numTracks && pOffset < pFile + size; ++t)
    {
-      Track_Chunk track;
-      memcpy(&track.signature, pOffset, sizeof(track.id));
+      MidiFile::Track_Chunk track;
+      memcpy(&track.signature, pOffset, sizeof(track.signature));
       pOffset += sizeof(track.signature);
       memcpy(&track.length, pOffset, sizeof(track.length));
       pOffset += sizeof(track.length);
-      /// TODO: Necessary?
-      //MFEndian_BigToHost(&track.length);
+
+      FlipEndianness(&track.length);
       
-      /// TODO: is this valid? uint32 compare?
-      if(CompareToString(track.signature, "MTrk"))
+      if(CompareToString(&track.signature, "MTrk"))
       {
          const char *pTrk = pOffset;
-         uint32 tick = 0;
+         uint32_t tick = 0;
          
          while(pTrk < pOffset + track.length)
          {
-            uint32 delta = ReadVarLen(pTrk);
+            uint32_t delta = ReadVarLen(pTrk);
             tick += delta;
-            uint8 status = *(uint8*)pTrk++;
+            uint8_t status = *(uint8_t*)pTrk++;
             
-            MidiEvent *pEvent = NULL;
+            MidiFile::MidiEvent *pEvent = NULL;
             
-            if(status == MidiEventType::MidiEvent_Meta)
+            if(status == MidiFile::MidiEventType::MidiEventType_Meta)
             {
                // meta event
-               uint8 type = *(uint8*)pTrk++;
-               uint32 bytes = ReadVarLen(pTrk);
+               uint8_t type = *(uint8_t*)pTrk++;
+               uint32_t bytes = ReadVarLen(pTrk);
                
                // read event
                switch(type)
                {
-                  case MidiMeta_SequenceNumber:
+                  case MidiFile::MidiMeta_SequenceNumber:
                   {
                      static int sequence = 0;
                      
-                     /// TODO: change to alloc
-                     MIDIEvent_SequenceNumber *pSeq = (MIDIEvent_SequenceNumber*)MFHeap_Alloc(sizeof(MIDIEvent_SequenceNumber));
+                     MidiFile::MidiEvent_SequenceNumber *pSeq = new MidiFile::MidiEvent_SequenceNumber;
                      pEvent = pSeq;
                      
                      if(!bytes)
                         pSeq->sequence = sequence++;
                      else
                      {
-                        uint16 seq;
-                        /// TODO: change to memcopy
-                        MFCopyMemory(&seq, pTrk, 2);
-                        /// TODO: ???
-                        //MFEndian_BigToHost(&seq);
+                        uint16_t seq;
+                        memcpy(&seq, pTrk, 2);
+                        FlipEndianness(&seq);
                         pSeq->sequence = (int)seq;
                      }
                      break;
                   }
-                  case MidiMeta_Text:
-                  case MidiMeta_Copyright:
-                  case MidiMeta_TrackName:
-                  case MidiMeta_Instrument:
-                  case MidiMeta_Lyric:
-                  case MidiMeta_Marker:
-                  case MidiMeta_CuePoint:
-                  case MidiMeta_PatchName:
-                  case MidiMeta_PortName:
+                  case MidiFile::MidiMeta_Text:
+                  case MidiFile::MidiMeta_Copyright:
+                  case MidiFile::MidiMeta_TrackName:
+                  case MidiFile::MidiMeta_Instrument:
+                  case MidiFile::MidiMeta_Lyric:
+                  case MidiFile::MidiMeta_Marker:
+                  case MidiFile::MidiMeta_CuePoint:
+                  case MidiFile::MidiMeta_PatchName:
+                  case MidiFile::MidiMeta_PortName:
                   {
-                     /// TODO: malloc
-                     MIDIEvent_Text *pText = (MIDIEvent_Text*)MFHeap_Alloc(sizeof(MIDIEvent_Text));
+                     MidiFile::MidiEvent_Text *pText = new MidiFile::MidiEvent_Text;
                      pEvent = pText;
-                     /// TODO: memcopy
-                     MFCopyMemory(pText->buffer, pTrk, bytes);
+                     memcpy(pText->buffer, pTrk, bytes);
                      pText->buffer[bytes] = 0;
                      break;
                   }
-                  case MidiMeta_EndOfTrack:
+                  case MidiFile::MidiMeta_EndOfTrack:
                   {
-                     /// TODO: malloc
-                     MIDIEvent *pE = (MIDIEvent*)MFHeap_Alloc(sizeof(MIDIEvent));
+                     MidiFile::MidiEvent *pE = new MidiFile::MidiEvent;
                      pEvent = pE;
                      pTrk = pOffset + track.length;
                      break;
                   }
-                  case MidiMeta_Tempo:
+                  case MidiFile::MidiMeta_Tempo:
                   {
-                     /// TODO: malloc
-                     MIDIEvent_Tempo *pTempo = (MIDIEvent_Tempo*)MFHeap_Alloc(sizeof(MIDIEvent_Tempo));
+                     MidiFile::MidiEvent_Tempo *pTempo = new MidiFile::MidiEvent_Tempo;
                      pEvent = pTempo;
-                     pTempo->microsecondsPerBeat = ((uint8*)pTrk)[0] << 16;
-                     pTempo->microsecondsPerBeat |= ((uint8*)pTrk)[1] << 8;
-                     pTempo->microsecondsPerBeat |= ((uint8*)pTrk)[2];
+                     pTempo->microsecondsPerBeat = ((uint8_t*)pTrk)[0] << 16;
+                     pTempo->microsecondsPerBeat |= ((uint8_t*)pTrk)[1] << 8;
+                     pTempo->microsecondsPerBeat |= ((uint8_t*)pTrk)[2];
                      pTempo->BPM = 60000000.0f/(float)pTempo->microsecondsPerBeat;
                      break;
                   }
-                  case MidiMeta_SMPTE:
+                  case MidiFile::MidiMeta_SMPTE:
                   {
-                     /// TODO: malloc
-                     MIDIEvent_SMPTE *pSMPTE = (MIDIEvent_SMPTE*)MFHeap_Alloc(sizeof(MIDIEvent_SMPTE));
+                     MidiFile::MidiEvent_SMPTE *pSMPTE = new MidiFile::MidiEvent_SMPTE;
                      pEvent = pSMPTE;
-                     pSMPTE->hours = ((uint8*)pTrk)[0];
-                     pSMPTE->minutes = ((uint8*)pTrk)[1];
-                     pSMPTE->seconds = ((uint8*)pTrk)[2];
-                     pSMPTE->frames = ((uint8*)pTrk)[3];
-                     pSMPTE->subFrames = ((uint8*)pTrk)[4];
+                     pSMPTE->hours = ((uint8_t*)pTrk)[0];
+                     pSMPTE->minutes = ((uint8_t*)pTrk)[1];
+                     pSMPTE->seconds = ((uint8_t*)pTrk)[2];
+                     pSMPTE->frames = ((uint8_t*)pTrk)[3];
+                     pSMPTE->subFrames = ((uint8_t*)pTrk)[4];
                      break;
                   }
-                  case MidiMeta_TimeSignature:
+                  case MidiFile::MidiMeta_TimeSignature:
                   {
-                     /// TODO: malloc
-                     MIDIEvent_TimeSignature *pTS = (MIDIEvent_TimeSignature*)MFHeap_Alloc(sizeof(MIDIEvent_TimeSignature));
+                     MidiFile::MidiEvent_TimeSignature *pTS = new MidiFile::MidiEvent_TimeSignature;
                      pEvent = pTS;
-                     pTS->numerator = ((uint8*)pTrk)[0];
-                     pTS->denominator = ((uint8*)pTrk)[1];
-                     pTS->clocks = ((uint8*)pTrk)[2];
-                     pTS->d = ((uint8*)pTrk)[3];
+                     pTS->numerator = ((uint8_t*)pTrk)[0];
+                     pTS->denominator = ((uint8_t*)pTrk)[1];
+                     pTS->clocks = ((uint8_t*)pTrk)[2];
+                     pTS->d = ((uint8_t*)pTrk)[3];
                      break;
                   }
-                  case MidiMeta_KeySignature:
+                  case MidiFile::MidiMeta_KeySignature:
                   {
-                     /// TODO: malloc
-                     MIDIEvent_KeySignature *pKS = (MIDIEvent_KeySignature*)MFHeap_Alloc(sizeof(MIDIEvent_KeySignature));
+                     MidiFile::MidiEvent_KeySignature *pKS = new MidiFile::MidiEvent_KeySignature;
                      pEvent = pKS;
-                     pKS->sf = ((uint8*)pTrk)[0];
-                     pKS->minor = ((uint8*)pTrk)[1];
+                     pKS->sf = ((uint8_t*)pTrk)[0];
+                     pKS->minor = ((uint8_t*)pTrk)[1];
                      break;
                   }
-                  case MidiMeta_Custom:
+                  case MidiFile::MidiMeta_Custom:
                   {
-                     /// TODO: malloc maybe make a function?... probably no...
-                     MIDIEvent_Custom *pCustom = (MIDIEvent_Custom*)MFHeap_Alloc(sizeof(MIDIEvent_Custom));
+                     MidiFile::MidiEvent_Custom *pCustom = new MidiFile::MidiEvent_Custom;
                      pEvent = pCustom;
                      pCustom->pData = pTrk;
                      pCustom->size = bytes;
@@ -257,14 +257,10 @@ MIDIFile* LoadMidiFromFile(const char *pFile, size_t size)
                
                pTrk += bytes;
             }
-            /// TODO: comments, what is going on here????
-            else if(status == MidiEventType::MidiEvent_SYSEX || status == MidiEventType::MidiEvent_SYSEX2)
+            else if(status == MidiFile::MidiEventType::MidiEventType_SYSEX || status == MidiFile::MidiEventType::MidiEventType_SYSEX2)
             {
-               uint32 bytes = ReadVarLen(pTrk);
-               
-               // SYSEX event...
-               //MFDebug_Log(2, "Encountered SYSEX event...");
-               
+               // Ignore sysex events for now
+               uint32_t bytes = ReadVarLen(pTrk);
                pTrk += bytes;
             }
             else
@@ -283,17 +279,16 @@ MIDIFile* LoadMidiFromFile(const char *pFile, size_t size)
                
                int param1 = ReadVarLen(pTrk);
                int param2 = 0;
-               /// TODO: Why is this here? what does it do?
-               if(eventType != MidiNote_ProgramChange && eventType != MidiNote_ChannelAfterTouch)
+               // param2 will contain useful info, if the event isn't programChange or channelAfterTouch
+               if(eventType != MidiFile::MidiNote_ProgramChange && eventType != MidiFile::MidiNote_ChannelAfterTouch)
                   param2 = ReadVarLen(pTrk);
                
                switch(eventType)
                {
-                  case MidiNote_NoteOn:
-                  case MidiNote_NoteOff:
+                  case MidiFile::MidiNote_NoteOn:
+                  case MidiFile::MidiNote_NoteOff:
                   {
-                     /// TODO: malloc
-                     MidiEvent_Note *pNote = (MIDIEvent_Note*)MFHeap_Alloc(sizeof(MIDIEvent_Note));
+                     MidiFile::MidiEvent_Note *pNote = new MidiFile::MidiEvent_Note;
                      pEvent = pNote;
                      pNote->event = status&0xF0;
                      pNote->channel = status&0x0F;
@@ -306,7 +301,7 @@ MIDIFile* LoadMidiFromFile(const char *pFile, size_t size)
                if(pEvent)
                {
                   pEvent->subType = status;
-                  status = MidiEvent_Note;
+                  status = MidiFile::MidiEventType_Note;
                }
             }
             
@@ -318,7 +313,7 @@ MIDIFile* LoadMidiFromFile(const char *pFile, size_t size)
                pEvent->type = status;
                pEvent->pNext = NULL;
                
-               MidiEvent *pEv = pMidiFile->tracks[t];
+               MidiFile::MidiEvent *pEv = pMidiFile->tracks[t];
                
                if(!pEv)
                {
@@ -339,3 +334,22 @@ MIDIFile* LoadMidiFromFile(const char *pFile, size_t size)
    
    return pMidiFile;
 }
+
+MidiFile* ReadMidiFile(std::string fileName)
+{
+   // TODO: change to using ragefile
+   std::ifstream is(fileName.c_str(), std::ifstream::binary);
+   if (is) {
+      is.seekg (0, is.end);
+      int length = is.tellg();
+      is.seekg (0, is.beg);
+      
+      char * buffer = new char [length];
+      
+      is.read(buffer,length);
+      
+      return ParseMidi(buffer, length);
+   }
+   return nullptr;
+}
+
