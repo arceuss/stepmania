@@ -511,7 +511,8 @@ void initSteps(Steps &out, Difficulty diff, std::istringstream &iss, int resolut
    out.SetSavedToDisk(true);
 }
 
-void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool parseSongInfo, std::string sFilePath )
+void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool parseSongInfo, std::string sFilePath,
+             std::string sFileName )
 {
    // 192 is default resolution per beat in some (poorly done) charts, in GH and RB, it's actually 480
    int resolution = 192;
@@ -569,7 +570,7 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
                // if we're parsing the whole song, we need all steps
                Steps* pNewNotes = outSong.CreateSteps();
                initSteps(*pNewNotes, currDiff, iss, resolution, iHopoResolution, headerInfo);
-               pNewNotes->SetFilename(sFilePath);
+               pNewNotes->SetFilename(sFileName);
                outSong.AddSteps(pNewNotes);
             }
          } else { // don't care about this tag
@@ -602,10 +603,7 @@ bool ReadFile( std::string sNewPath, Song &outSong, Steps &outSteps, bool parseS
    int iBytesRead = f.Read( FileString );
    if( iBytesRead == -1 )return false;
    
-   std::string sscFile = sNewPath.substr(0,sNewPath.length()-5) + "ssc";
-   std::string dir = sNewPath.substr(0,sNewPath.find_last_of("/\\")+1);
-   
-   ReadBuf( FileString.c_str(), iBytesRead, outSong, outSteps, parseSongInfo, sBasePath );
+   ReadBuf( FileString.c_str(), iBytesRead, outSong, outSteps, parseSongInfo, sBasePath, sNewPath );
    
    // TODO: can the above operation fail somehow? Return false if it does
    return true;
