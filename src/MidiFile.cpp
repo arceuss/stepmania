@@ -1,6 +1,6 @@
 /*
- * Skeleton for MidiFile.cpp, functions are subject to change and they likely will, this was started a long time ago
- * Will probably scrap this and start from scratch
+ * MidiFile parser for all your Midi File parsing needs
+ * >>does not record all midi events, such as certain special aftertouch notes and such<<
  */
 
 #include "global.h"
@@ -9,9 +9,6 @@
 #include "RageLog.h"
 #include "RageUtil.h"
 #include <string>
-#include <fstream>
-#include <stdint.h>
-
 
 
 /* Function to read variable length values in files
@@ -144,6 +141,9 @@ MidiFile* ParseMidi(const char *pFile, size_t size)
       {
          const char *pTrk = pOffset;
          uint32_t tick = 0;
+         
+         // this is most certainly null, but get it just in case
+         MidiFile::MidiEvent *pEv = pMidiFile->tracks[t];
          
          while(pTrk < pOffset + track.length)
          {
@@ -294,6 +294,7 @@ MidiFile* ParseMidi(const char *pFile, size_t size)
                      pNote->channel = status&0x0F;
                      pNote->note = param1;
                      pNote->velocity = param2;
+                     status &= 0xF0;
                      break;
                   }
                }
@@ -313,18 +314,18 @@ MidiFile* ParseMidi(const char *pFile, size_t size)
                pEvent->type = status;
                pEvent->pNext = NULL;
                
-               MidiFile::MidiEvent *pEv = pMidiFile->tracks[t];
-               
                if(!pEv)
                {
+                  // set the first event
                   pMidiFile->tracks[t] = pEvent;
                }
                else
                {
-                  while(pEv->pNext)
-                     pEv = pEv->pNext;
+                  // set the next event
                   pEv->pNext = pEvent;
                }
+               // point to the most recent event
+               pEv = pEvent;
             }
          }
       }
@@ -337,19 +338,17 @@ MidiFile* ParseMidi(const char *pFile, size_t size)
 
 MidiFile* ReadMidiFile(std::string fileName)
 {
-   // TODO: change to using ragefile
-   std::ifstream is(fileName.c_str(), std::ifstream::binary);
-   if (is) {
-      is.seekg (0, is.end);
-      int length = is.tellg();
-      is.seekg (0, is.beg);
-      
-      char * buffer = new char [length];
-      
-      is.read(buffer,length);
-      
-      return ParseMidi(buffer, length);
-   }
-   return nullptr;
+   RageFile f;
+   /* Open a file. */
+   if( !f.Open( fileName ) )return nullptr;
+   
+   // allocate a string to hold the file
+   std::string FileString;
+   FileString.reserve( f.GetFileSize() );
+   
+   int iBytesRead = f.Read( FileString );
+   if( iBytesRead == -1 )return nullptr;
+   
+   return ParseMidi(FileString.c_str(), iBytesRead);
 }
 
