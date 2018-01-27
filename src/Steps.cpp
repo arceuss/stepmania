@@ -29,6 +29,7 @@
 #include "NotesLoaderKSF.h"
 #include "NotesLoaderBMS.h"
 #include "NotesLoaderChart.h"
+#include "NotesLoaderMID.h"
 #include <algorithm>
 
 /* register DisplayBPM with StringConversion */
@@ -159,6 +160,10 @@ bool Steps::GetNoteDataFromSimfile()
    else if (extension == "chart")
    {
       return CHARTLoader::LoadNoteDataFromSimfile(stepFile, *this);
+   }
+   else if (extension == "mid")
+   {
+      return MIDILoader::LoadNoteDataFromSimfile(stepFile, *this);
    }
 	else if (extension == "edit")
 	{
