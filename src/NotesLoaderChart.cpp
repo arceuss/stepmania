@@ -12,22 +12,10 @@
 #include "GameManager.h"
 #include "Difficulty.h"
 #include "IniFile.h"
-#include "NotesWriterSSC.h"
-#include "NotesLoaderSSC.h"
-#include <string>
 #include <sstream>
 
 /*
- Alright, just a fair warning, this whole thing is complete garbage. I tried making a notesloader the legit way, but it never
- worked, so instead it rewrites it as an SSC file then calls the SSC loader
- This isn't a loader at all, this is just a rewriter because I don't know how this is supposed to work.
- 
- Coming back to this after a long break and lots of research. It turns out this stupid thing was parsing charts with roughly
- the same accuracy as the original FoF, which was rather impressive. I'm trying to get it to be more accurate than FoFiX, at
- which point it's really up to the custom chart markers/midi translator programs to make a faithfully accurate chart. The
- limitation there is the midi translators don't care for certain parts, such as forced notes, as well as features added after
- GHIII, like slider notes and tap notes during holds. For that level accuracy, I'll need to write a MIDILoader next, then
- songs can be directly ripped from any Guitar Hero or Rock Band game and be more accurate than PhaseShift.
+ This may not not look pretty, but this is pretty faithfully accurate for this weird file format
  */
 
 // extracted method to save lines of code and readability
