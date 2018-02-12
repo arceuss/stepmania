@@ -104,6 +104,14 @@ MidiOrganizer organizeMidi(MidiFile* mf)
    MidiOrganizer mo;
    mo.HOPOType = Unknown_Rules;
    mo.midFile = mf;
+   mo.bassTrack = NULL;
+   mo.guitarTrack = NULL;
+   mo.drumTrack = NULL;
+   mo.vocalTrack = NULL;
+   mo.eventTrack = NULL;
+   mo.beatTrack = NULL;
+   mo.venueTrack = NULL;
+   mo.otherTrack = NULL;
    
    for(int i = mf->numTracks - 1; i >= 0; i--)
    {
@@ -510,6 +518,12 @@ void parseBeatTrack(TimingData &td, MidiFile::MidiEvent* track, int resolution)
 {
    MidiFile::MidiEvent* curEvent = track;
    
+   // some default segments
+   td.set_offset( 0 );
+   td.AddSegment(ComboSegment(0.0,1,1));
+   td.AddSegment(ScrollSegment(0.0,1.0));
+   td.AddSegment(TickcountSegment(0, 48));
+   
    // while there's still more events
    while(curEvent) {
       // only care about meta types
@@ -536,8 +550,32 @@ void parseBeatTrack(TimingData &td, MidiFile::MidiEvent* track, int resolution)
    }
 }
 
+// parses event titles to be added to events in the song
+void parseEventTrack(TimingData &td, MidiFile::MidiEvent *track, int resolution)
+{
+   MidiFile::MidiEvent* curEvent = track;
+   
+   // while there's still more events
+   while(curEvent) {
+      // only care about meta types
+      if(curEvent->type == MidiFile::MidiEventType_Meta)
+      {
+         // tecnically there's a lot on the event track, but lets only get labels
+         if(curEvent->subType == MidiFile::MidiMeta_Text)
+         {
+            MidiFile::MidiEvent_Text* txtEvent = (MidiFile::MidiEvent_Text*) curEvent;
+            std::string txt = std::string(txtEvent->buffer);
+            td.AddSegment( LabelSegment((float)txtEvent->tick/resolution, txt ));
+         }
+      }
+      
+      curEvent = curEvent->pNext;
+   }
+}
+
 // parses an ini file, if it exists, to get song metadata
-void parseINI(std::string sFilePath, int* resolution, int* hopoResolution, std::string &title, std::string &artist)
+void parseINI(std::string sFilePath, int* resolution, int* hopoResolution, std::string &title,
+              std::string &artist, std::string &charter)
 {
    IniFile ini;
    if( !ini.ReadFile( sFilePath + "song.ini" ) )
@@ -588,6 +626,9 @@ void parseINI(std::string sFilePath, int* resolution, int* hopoResolution, std::
       if( !ini.GetValue("song", "name", title)) {
          title = "";
       }
+      if( !ini.GetValue("song", "frets", charter)) {
+         charter = "";
+      }
    }
 }
 
@@ -618,35 +659,63 @@ bool MIDILoader::LoadFromDir( const std::string &sDir, Song &out ) {
    int hopoResolution = 120;
    std::string title = "";
    std::string artist = "";
-   parseINI(dir, &resolution, &hopoResolution, title, artist);
+   std::string charter = "";
+   parseINI(dir, &resolution, &hopoResolution, title, artist, charter);
+   
+   out.m_sMainTitle = title;
+   out.m_sArtist = artist;
+   out.m_sCredit = charter;
+   // TODO: investigate instrument tracks
+   // outSong.m_sMusicFile = songFile; <- if only 1 file
+   // for instruments, try something like 450 in NotesLoaderSM.cpp
+   parseBeatTrack(out.m_SongTiming, mo.beatTrack, resolution);
+   if(mo.eventTrack != NULL) parseEventTrack(out.m_SongTiming, mo.eventTrack, resolution);
    
    // Get all notes from the guitar track
    for(int i=0; i<4; i++)
    {
+      // TODO: Initialize data and stuff in these steps
       Steps* newSteps = out.CreateSteps();
+      /* steps initialization stuff */
+      newSteps->m_StepsType = StepsType_guitar_solo;
+      newSteps->SetChartStyle("Guitar");
+      newSteps->SetCredit( charter );
+      newSteps->SetDescription( charter );
+      // out.SetMusicFile( headerInfo[2] ); TODO: music stuff
+      newSteps->SetMeter(1); // will have to try this later, has a history of crashing when not hardcoded
+      newSteps->SetSavedToDisk(true);
+       
+      newSteps->SetFilename(dir+arrayMidiFileNames[0]);
       switch(i) {
          case 0:
+            newSteps->SetDifficulty(Difficulty_Easy);
             newSteps->SetNoteData(getGHRBNotesFromTrack(mo.guitarTrack, Difficulty_Easy, mo.HOPOType,
                                                         resolution, hopoResolution, 6));
             break;
          case 1:
+            newSteps->SetDifficulty(Difficulty_Medium);
             newSteps->SetNoteData(getGHRBNotesFromTrack(mo.guitarTrack, Difficulty_Medium, mo.HOPOType,
                                                         resolution, hopoResolution, 6));
             break;
          case 2:
+            newSteps->SetDifficulty(Difficulty_Hard);
             newSteps->SetNoteData(getGHRBNotesFromTrack(mo.guitarTrack, Difficulty_Hard, mo.HOPOType,
                                                         resolution, hopoResolution, 6));
             break;
          case 3:
+            newSteps->SetDifficulty(Difficulty_Challenge);
             newSteps->SetNoteData(getGHRBNotesFromTrack(mo.guitarTrack, Difficulty_Challenge, mo.HOPOType,
                                                         resolution, hopoResolution, 6));
             break;
          default:
             break;
       }
+      newSteps->TidyUpData();
+      out.AddSteps(newSteps);
    }
    
    // Put all the data together
+   out.TidyUpData();
    
    return false;
 }
@@ -665,7 +734,8 @@ bool MIDILoader::LoadNoteDataFromSimfile( const std::string & cachePath, Steps &
    int hopoResolution = 120;
    std::string title = "";
    std::string artist = "";
-   parseINI(sBasePath, &resolution, &hopoResolution, title, artist);
+   std::string charter = "";
+   parseINI(sBasePath, &resolution, &hopoResolution, title, artist, charter);
    
    // Get the desired notes from the guitar track
    out.SetNoteData(getGHRBNotesFromTrack(mo.guitarTrack, out.GetDifficulty(), mo.HOPOType, resolution, hopoResolution, 6));
