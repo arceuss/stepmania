@@ -24,7 +24,7 @@
 
 // simple enum for if this midi is using Guitar Hero or Rock Band HOPO rules
 // In rockband, HOPOs can't occur after a chord if the note was part of the
-// chord, and in guitar hero, forced chords are possible (but not in RB)
+// chord, and forced note rules are different for each
 enum HOPORules {
    GH_HOPO_Rules,
    RB_HOPO_Rules,
@@ -222,26 +222,20 @@ bool checkHOPOConditions(int iNoteTrack, int iNoteMark, GuitarData gd)
 {
    bool ShouldBeHOPO = false;
    int k = 0;
+   int prevNoteTrack = -1;
+   int prevNoteMark = -1;
    
    // quick check rules
    // if this note is in a chord, then HOPO=no and that's that. No forcing applies.
-   if( iNoteMark - gd.iPrevNoteMark[k] == 0 ||
-      (gd.iLastChordRow - iNoteMark == 0 && gd.iLastChordRow != -1) )
+   if( gd.iLastChordRow == iNoteMark && gd.iLastChordRow != -1 )
    {
       return false;
    }
    
-   // if this uses RB hopo rules, and is following a chord of which this row was a part of, it is definitely not a HOPO
-   if(gd.hopoRules == RB_HOPO_Rules &&
-      gd.iPrevNoteTrack != -1 &&
-      gd.iPrevNoteMark[iNoteTrack] != -1 &&
-      gd.iPrevNoteMark[gd.iPrevNoteTrack] != -1 &&
-      gd.iPrevNoteMark[iNoteTrack] - gd.iPrevNoteMark[gd.iPrevNoteTrack] == 0 &&
-      gd.iPrevNoteTrack != iNoteTrack)
+   // In rockband, the tap force column denotes a note should NOT be a HOPO
+   if( gd.iLastTapRow == iNoteMark && gd.hopoRules == RB_HOPO_Rules )
    {
-      ShouldBeHOPO = false;
-      // skip the while loop, but still check for forcing
-      k = gd.iCols;
+      return false;
    }
    
    while( k<gd.iCols )
@@ -254,11 +248,32 @@ bool checkHOPOConditions(int iNoteTrack, int iNoteMark, GuitarData gd)
          ShouldBeHOPO = true;
       }
       
+      if(gd.iPrevNoteMark[k] > prevNoteMark)
+      {
+         prevNoteMark = gd.iPrevNoteMark[k];
+         prevNoteTrack = k;
+      }
+      
       ++k;
    }
    
-   // Reverse the note if the row was marked to be forced
-   if( gd.iLastForcedRow - iNoteMark == 0 && gd.iLastForcedRow != -1 ) ShouldBeHOPO = !ShouldBeHOPO;
+   // if this uses RB hopo rules, and is following a chord of which this row was a part of, it is definitely not a HOPO
+   if(gd.hopoRules == RB_HOPO_Rules &&
+      prevNoteTrack != -1 &&
+      gd.iPrevNoteMark[iNoteTrack] != -1 &&
+      prevNoteMark != -1 &&
+      gd.iPrevNoteMark[iNoteTrack] == prevNoteMark )
+   {
+      ShouldBeHOPO = false;
+   }
+   
+   // Reverse the note if the row was marked to be forced (GH)
+   // or force it to be always HOPO (RB)
+   if( gd.iLastForcedRow == iNoteMark && gd.iLastForcedRow != -1 )
+   {
+      if(gd.hopoRules == RB_HOPO_Rules) ShouldBeHOPO = true;
+      else ShouldBeHOPO = !ShouldBeHOPO;
+   }
    
    return ShouldBeHOPO;
 }
@@ -273,9 +288,9 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
    int realEnd = end;
    // if the duration <= 1/2 resolution, it's not held
    // and if it is held, shorten the duration slightly so as not to overrun other notes
-   if(start - end > 24)
+   if(end - start > gd.iResolution / 2)
    {
-      realEnd -= 6;
+      realEnd -= gd.iResolution / 8;
    } else {
       realEnd = start;
    }
@@ -305,10 +320,11 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
             // already found the one we want, delete this note
             if(foundHighest)
             {
-               notes.SetTapNote(col, startRow, TAP_EMPTY);
+               notes.SetTapNote(i, startRow, TAP_EMPTY);
             } else { // else, replace the other note with the opposite type
                foundHighest = true;
-               bool wasHopo = taps[i].type == TapNoteType_HOPO || taps[i].type == TapNoteType_HOPOHold;
+               bool wasHopo = (taps[i].type == TapNoteType_HOPO || taps[i].type == TapNoteType_HOPOHold) &&
+                              gd.hopoRules == GH_HOPO_Rules;
                placeNote(notes, i, startRow, startRow + taps[i].iDuration, wasHopo ? 2 : 3);
             }
          }
@@ -316,7 +332,7 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
       // mark last forced note row
       gd.iLastChordRow = start;
    }
-   else if(col >= gd.iCols) // this marks forced tap notes
+   else if(col >= gd.iCols) // this row mean not a hopo in RB, or add a tap note in GH
    {
       // check if any other notes were placed on this row
       if(isChordRow)
@@ -325,10 +341,11 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
          for(int i=0; i<gd.iCols; i++)
          {
             if(taps[i] == TAP_EMPTY) continue;
-            placeNote(notes, i, startRow, startRow + taps[i].iDuration, 1);
+            placeNote(notes, i, startRow, startRow + taps[i].iDuration,
+                      gd.hopoRules == RB_HOPO_Rules ? 2 : 1);
          }
       }
-      // mark last tap row
+      // mark last normal note row
       gd.iLastTapRow = start;
    }
    else // this is a normal note
@@ -336,7 +353,7 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
       // place a tap/hold if this row is a tap row
       if(start == gd.iLastTapRow)
       {
-         placeNote(notes, col, startRow, endRow, 1);
+         placeNote(notes, col, startRow, endRow, gd.hopoRules == RB_HOPO_Rules ? 2 : 1);
       }
       else
       {
@@ -344,7 +361,8 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
          if(isChordRow)
          {
             // get if the last note was a hopo, should only be relevant for 1 note in row so this'll work
-            bool wasHopo = taps[highestNote].type == TapNoteType_HOPO || taps[highestNote].type == TapNoteType_HOPOHold;
+            bool wasHopo = (taps[highestNote].type == TapNoteType_HOPO || taps[highestNote].type == TapNoteType_HOPOHold) ||
+                           gd.hopoRules == RB_HOPO_Rules;
             // check if this row was forced
             if(start == gd.iLastForcedRow)
             {
