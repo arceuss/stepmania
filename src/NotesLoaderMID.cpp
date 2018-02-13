@@ -679,6 +679,83 @@ void getMusicFiles( const std::string path, Song &out )
    // I really hope this works, don't want to make this more complicated
 }
 
+// Creates a lyrics file given the vocal track from the midifile and returns its location
+std::string createLyricsFile( const std::string path, TimingData td, int resolution, MidiFile::MidiEvent *track)
+{
+   std::string lrcFileName = path + "lyrics.lrc";
+   RageFile f;
+   MidiFile::MidiEvent *curEvt = track;
+   int lastMeasure = 0;
+   std::string curLine = "";
+   
+   if( !f.Open(lrcFileName, RageFile::WRITE) )
+   {
+      LOG->UserLog( "Lyrics file at", path, "couldn't be opened for writing: %s", f.GetError().c_str() );
+      return "";
+   }
+   
+   // format for .lrc files:
+   // [mm:ss.xx]Lyrics here
+   // [mm:ss.xx]More lyrics
+   // divide by measure, time the lyrics to the first lyric of the measure
+   while(curEvt)
+   {
+      // only care about lyrics
+      if(curEvt->type == MidiFile::MidiEventType_Meta)
+      {
+         if(curEvt->subType == MidiFile::MidiMeta_Lyric)
+         {
+            MidiFile::MidiEvent_Text* txtEvent = (MidiFile::MidiEvent_Text*) curEvt;
+            std::string txt = std::string(txtEvent->buffer);
+            
+            // '+' is used to carry a lyric through pitch changes
+            if(txt.at(0) != '+')
+            {
+               // strip special characters
+               if(txt.back() == '#') txt = txt.substr(0, txt.size() - 1); // for spoken words
+               if(txt.back() == '^') txt = txt.substr(0, txt.size() - 1); // ???
+               
+               // if this is a new measure, append the last line and start another
+               if(lastMeasure < (int)(txtEvent->tick / resolution) / 4)
+               {
+                  f.PutLine(curLine);
+                  float fSeconds = td.GetElapsedTimeFromBeat( (float)txtEvent->tick / resolution );
+                  int min = ((int)fSeconds) / 60;
+                  int sec = ((int)fSeconds) % 60;
+                  int csc = (int)((fSeconds - (sec + (60 * min))) * 100); // centiseconds
+                  std::string minStr = std::to_string(min);
+                  std::string secStr = std::to_string(sec);
+                  std::string cscStr = std::to_string(csc);
+                  if(minStr.size() == 1) minStr = '0' + minStr;
+                  if(secStr.size() == 1) secStr = '0' + secStr;
+                  if(cscStr.size() == 1) cscStr = '0' + cscStr;
+                  curLine = "[" + minStr + ":" + secStr + "." + cscStr + "]";
+                  lastMeasure = (int)(txtEvent->tick / resolution) / 4;
+               }
+               
+               // '-' is used to connect syllables inside words
+               if(curLine.back() == '-') {
+                  curLine = curLine.substr(0, curLine.size() - 1);
+               } else {
+                  curLine += ' ';
+               }
+               
+               // append to line
+               curLine += txt;
+            }
+         }
+      }
+      
+      curEvt = curEvt->pNext;
+   }
+   
+   f.PutLine(curLine);
+   if( f.Flush() == -1 )
+      return "";
+   
+   return lrcFileName;
+}
+
 void MIDILoader::GetApplicableFiles( const std::string &sPath, std::vector<std::string> &out )
 {
    GetDirListing( sPath + std::string("*.mid"), out );
@@ -715,6 +792,18 @@ bool MIDILoader::LoadFromDir( const std::string &sDir, Song &out ) {
    getMusicFiles(sDir, out);
    parseBeatTrack(out.m_SongTiming, mo.beatTrack, resolution);
    if(mo.eventTrack != NULL) parseEventTrack(out.m_SongTiming, mo.eventTrack, resolution);
+   
+   // get lyrics file
+   std::vector<std::string> lyricFiles;
+   std::string lrcFile = "";
+   GetDirListing( sDir + std::string("*.lrc"), lyricFiles );
+   if( lyricFiles.size() == 0 && mo.vocalTrack != NULL)
+   {
+      lrcFile = createLyricsFile(sDir, out.m_SongTiming, resolution, mo.vocalTrack);
+   } else {
+      lrcFile = sDir + lyricFiles[0];
+   }
+   if(!lrcFile.empty()) out.m_sLyricsFile = lrcFile;
    
    // Get all notes from the guitar track
    for(int i=0; i<4; i++)
