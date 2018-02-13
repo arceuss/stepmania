@@ -413,7 +413,7 @@ void parseSyncTrack(std::istringstream &iss, TimingData &out, int resolution)
       
       if( !vsWords[2].compare( "B" ) )
       {
-         out.AddSegment( BPMSegment((float)startMark/resolution, newBPM ));
+         out.AddSegment( BPMSegment(BeatToNoteRow((float)startMark/resolution), newBPM ));
       } else if( !vsWords[2].compare( "TS" ) )
       {
          // Fun fact, Guitar Hero songs are always in a time signature of x/4

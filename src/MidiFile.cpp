@@ -229,7 +229,7 @@ MidiFile* ParseMidi(const char *pFile, size_t size)
                      MidiFile::MidiEvent_TimeSignature *pTS = new MidiFile::MidiEvent_TimeSignature;
                      pEvent = pTS;
                      pTS->numerator = ((uint8_t*)pTrk)[0];
-                     pTS->denominator = ((uint8_t*)pTrk)[1];
+                     pTS->denominator = 1 << ((uint8_t*)pTrk)[1];
                      pTS->clocks = ((uint8_t*)pTrk)[2];
                      pTS->d = ((uint8_t*)pTrk)[3];
                      break;

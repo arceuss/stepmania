@@ -158,7 +158,7 @@ MidiOrganizer organizeMidi(MidiFile* mf)
    }
    
    // default to GH HOPO rules
-   if(mo.HOPOType = Unknown_Rules) mo.HOPOType = GH_HOPO_Rules;
+   if(mo.HOPOType == Unknown_Rules) mo.HOPOType = GH_HOPO_Rules;
    
    return mo;
 }
@@ -273,9 +273,9 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
    int realEnd = end;
    // if the duration <= 1/2 resolution, it's not held
    // and if it is held, shorten the duration slightly so as not to overrun other notes
-   if(start - end > (gd.iResolution / 2))
+   if(start - end > 24)
    {
-      realEnd -= (gd.iResolution / 8);
+      realEnd -= 6;
    } else {
       realEnd = start;
    }
@@ -292,7 +292,7 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
    }
    
    // determine if this is a forced note (on idx cols)
-   if(col == gd.iCols)
+   if(col == gd.iCols - 1)
    {
       // check if any other notes were placed on this row
       if(isChordRow)
@@ -316,7 +316,7 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
       // mark last forced note row
       gd.iLastChordRow = start;
    }
-   else if(col == gd.iCols + 1) // this marks forced tap notes
+   else if(col >= gd.iCols) // this marks forced tap notes
    {
       // check if any other notes were placed on this row
       if(isChordRow)
@@ -418,9 +418,9 @@ NoteData getGHRBNotesFromTrack(MidiFile::MidiEvent* track, Difficulty diff, HOPO
       if(curEvt->type == MidiFile::MidiEventType_Note)
       {
          MidiFile::MidiEvent_Note* tempNote = (MidiFile::MidiEvent_Note*) curEvt;
-         int idx = tempNote->channel - low;
+         int idx = tempNote->note - low;
          // Is this note in the range we care about?
-         if(idx >= 0 && tempNote->channel <= high)
+         if(idx >= 0 && tempNote->note <= high)
          {
             if(tempNote->subType == MidiFile::MidiNote_NoteOn)
             {
@@ -432,8 +432,8 @@ NoteData getGHRBNotesFromTrack(MidiFile::MidiEvent* track, Difficulty diff, HOPO
                // close off any note in progress and place either a hold or tap note
                if(notesInProgress[idx])
                {
-                  int start = BeatToNoteRow((float)notesInProgress[idx]->tick/resolution);
-                  int end = BeatToNoteRow((float)tempNote->tick/resolution);
+                  int start = notesInProgress[idx]->tick;
+                  int end = tempNote->tick;
                   
                   // quick sanity check...
                   if(end > start)
@@ -493,7 +493,7 @@ NoteData getGenericNotesFromTrack(MidiFile::MidiEvent* track, int resolution, in
                // 240 is the magic number for 480 resolution, so...
                if(end > start)
                {
-                  if(end - start < (resolution / 2))
+                  if(end - start < 24)
                   {
                      newNotes.AddHoldNote(idx, start, end, TAP_ORIGINAL_HOLD_HEAD);
                   }
@@ -532,7 +532,7 @@ void parseBeatTrack(TimingData &td, MidiFile::MidiEvent* track, int resolution)
          if(curEvent->subType == MidiFile::MidiMeta_Tempo)
          {
             MidiFile::MidiEvent_Tempo* tempEvent = (MidiFile::MidiEvent_Tempo*) curEvent;
-            td.AddSegment( BPMSegment((float)tempEvent->tick/resolution, tempEvent->BPM ));
+            td.AddSegment( BPMSegment(BeatToNoteRow((float)tempEvent->tick/resolution), tempEvent->BPM ));
          }
          else if(curEvent->subType == MidiFile::MidiMeta_TimeSignature)
          {
@@ -565,7 +565,7 @@ void parseEventTrack(TimingData &td, MidiFile::MidiEvent *track, int resolution)
          {
             MidiFile::MidiEvent_Text* txtEvent = (MidiFile::MidiEvent_Text*) curEvent;
             std::string txt = std::string(txtEvent->buffer);
-            td.AddSegment( LabelSegment((float)txtEvent->tick/resolution, txt ));
+            td.AddSegment( LabelSegment(BeatToNoteRow((float)txtEvent->tick/resolution), txt ));
          }
       }
       
@@ -632,6 +632,35 @@ void parseINI(std::string sFilePath, int* resolution, int* hopoResolution, std::
    }
 }
 
+// Gets the music files and tracks in the current directory
+void getMusicFiles( const std::string path, Song &out )
+{
+   // get all .ogg files
+   std::vector<std::string> songFiles;
+   GetDirListing( path + std::string("*.ogg"), songFiles );
+   
+   // if only one file, set it as music file
+   if( songFiles.size() == 1 )
+   {
+      out.m_sMusicFile = path + songFiles[0];
+   } else {
+      for(int i=songFiles.size() - 1; i >= 0; i--)
+      {
+         if(songFiles[i].compare("guitar.ogg"))
+         {
+            out.m_sInstrumentTrackFile[InstrumentTrack_Guitar] = path + songFiles[i];
+         } else if(songFiles[i].compare("song.ogg"))
+         {
+            out.m_sInstrumentTrackFile[InstrumentTrack_Rhythm] = path + songFiles[i];
+         } else if(songFiles[i].compare("rhythm.ogg"))
+         {
+            out.m_sInstrumentTrackFile[InstrumentTrack_Bass] = path + songFiles[i];
+         }
+      }
+   }
+   // I really hope this works, don't want to make this more complicated
+}
+
 void MIDILoader::GetApplicableFiles( const std::string &sPath, std::vector<std::string> &out )
 {
    GetDirListing( sPath + std::string("*.mid"), out );
@@ -655,8 +684,8 @@ bool MIDILoader::LoadFromDir( const std::string &sDir, Song &out ) {
    MidiOrganizer mo = organizeMidi(mf);
    
    // Parse meta info
-   int resolution = 480;
-   int hopoResolution = 120;
+   int resolution = mf->ticksPerBeat;
+   int hopoResolution = resolution / 4;
    std::string title = "";
    std::string artist = "";
    std::string charter = "";
@@ -665,9 +694,7 @@ bool MIDILoader::LoadFromDir( const std::string &sDir, Song &out ) {
    out.m_sMainTitle = title;
    out.m_sArtist = artist;
    out.m_sCredit = charter;
-   // TODO: investigate instrument tracks
-   // outSong.m_sMusicFile = songFile; <- if only 1 file
-   // for instruments, try something like 450 in NotesLoaderSM.cpp
+   getMusicFiles(sDir, out);
    parseBeatTrack(out.m_SongTiming, mo.beatTrack, resolution);
    if(mo.eventTrack != NULL) parseEventTrack(out.m_SongTiming, mo.eventTrack, resolution);
    
@@ -681,7 +708,7 @@ bool MIDILoader::LoadFromDir( const std::string &sDir, Song &out ) {
       newSteps->SetChartStyle("Guitar");
       newSteps->SetCredit( charter );
       newSteps->SetDescription( charter );
-      // out.SetMusicFile( headerInfo[2] ); TODO: music stuff
+      // out.SetMusicFile( headerInfo[2] ); // TODO: music stuff needed?
       newSteps->SetMeter(1); // will have to try this later, has a history of crashing when not hardcoded
       newSteps->SetSavedToDisk(true);
        
@@ -717,7 +744,7 @@ bool MIDILoader::LoadFromDir( const std::string &sDir, Song &out ) {
    // Put all the data together
    out.TidyUpData();
    
-   return false;
+   return true;
 }
 
 // TODO: set important data in here
@@ -730,8 +757,8 @@ bool MIDILoader::LoadNoteDataFromSimfile( const std::string & cachePath, Steps &
    
    // Get the HOPO resolution
    std::string sBasePath = cachePath.substr(0, cachePath.find_last_of("/")+1);
-   int resolution = 480;
-   int hopoResolution = 120;
+   int resolution = mf->ticksPerBeat;
+   int hopoResolution = resolution / 4;
    std::string title = "";
    std::string artist = "";
    std::string charter = "";
@@ -741,5 +768,5 @@ bool MIDILoader::LoadNoteDataFromSimfile( const std::string & cachePath, Steps &
    out.SetNoteData(getGHRBNotesFromTrack(mo.guitarTrack, out.GetDifficulty(), mo.HOPOType, resolution, hopoResolution, 6));
    out.TidyUpData();
    
-   return false;
+   return true;
 }
