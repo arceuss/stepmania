@@ -464,7 +464,6 @@ void InitShaders()
 }
 
 static LocalizedString OBTAIN_AN_UPDATED_VIDEO_DRIVER ( "RageDisplay_Legacy", "Obtain an updated driver from your video card manufacturer." );
-static LocalizedString GLDIRECT_IS_NOT_COMPATIBLE ( "RageDisplay_Legacy", "GLDirect was detected.  GLDirect is not compatible with this game and should be disabled." );
 std::string RageDisplay_Legacy::Init( const VideoModeParams &p, bool bAllowUnacceleratedRenderer )
 {
 	g_pWind = LowLevelWindow::Create();
@@ -543,15 +542,6 @@ std::string RageDisplay_Legacy::Init( const VideoModeParams &p, bool bAllowUnacc
 			return sError + "  " + OBTAIN_AN_UPDATED_VIDEO_DRIVER.GetValue() + "\n\n";
 		LOG->Warn( "Low-performance OpenGL renderer: %s", sError.c_str() );
 	}
-
-#if defined(_WINDOWS)
-	/* GLDirect is a Direct3D wrapper for OpenGL.  It's rather buggy; and if in
-	 * any case GLDirect can successfully render us, we should be able to do so
-	 * too using Direct3D directly.  (If we can't, it's a bug that we can work
-	 * around--if GLDirect can do it, so can we!) */
-	if (!strncmp( (const char *) glGetString(GL_RENDERER), "GLDirect", 8 ))
-		return GLDIRECT_IS_NOT_COMPATIBLE.GetValue() + "\n";
-#endif
 
 	/* Log this, so if people complain that the radar looks bad on their
 	 * system we can compare them: */
@@ -862,9 +852,9 @@ void RageDisplay_Legacy::EndFrame()
 		CameraPopMatrix();
 	}
 
-	FrameLimitBeforeVsync( g_pWind->GetActualVideoModeParams().rate );
+    FrameLimitBeforeVsync( g_pWind->GetActualVideoModeParams().rate );
 	g_pWind->SwapBuffers();
-	FrameLimitAfterVsync();
+    FrameLimitAfterVsync();
 
 	// Some would advise against glFinish(), ever. Those people don't realize
 	// the degree of freedom GL hosts are permitted in queueing commands.
@@ -903,7 +893,7 @@ RageSurface* RageDisplay_Legacy::CreateScreenshot()
 		DebugFlushGLErrors();
 
 		//TODO: revisit for MacOS, where backbuffer size can be less than window size
-		glReadBuffer( GL_FRONT );
+		//glReadBuffer( GL_FRONT );
 		DebugAssertNoGLError();
 
 		glReadPixels( 0, 0, g_pWind->GetActualVideoModeParams().width, g_pWind->GetActualVideoModeParams().height, GL_RGBA,

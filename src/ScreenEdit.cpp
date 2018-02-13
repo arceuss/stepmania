@@ -1410,9 +1410,9 @@ static void set_edit_mode_stuff_on_field(NoteField& field)
 {
 	field.m_being_drawn_by_player= false;
 	field.m_vanish_type= FVT_RelativeToSelf;
-	field.m_trans_mod.pos_mod.x_mod.add_simple_mod("base_value", "number", EDIT_X);
-	field.m_trans_mod.pos_mod.y_mod.add_simple_mod("base_value", "number", EDIT_Y);
-	field.set_speed(0.f, 0.f, 1.f, 0.f, 0.f, 1.f);
+	field.m_trans_mod.set_base_value(
+		{{EDIT_X, EDIT_Y, 0.f}, {0.f, 0.f, 0.f}, {1.f, 1.f, 1.f}, 1.f, 0.f});
+	field.set_speed(1.f);
 	field.disable_speed_scroll_segments();
 	field.turn_on_edit_mode();
 }
@@ -1429,7 +1429,7 @@ void ScreenEdit::Init()
 	SubscribeToMessage( "Judgment" );
 	SubscribeToMessage("NoteskinChanged");
 
-	ASSERT( GAMESTATE->m_pCurSong != nullptr );
+	ASSERT( GAMESTATE->get_curr_song() != nullptr );
 	ASSERT( GAMESTATE->m_pCurSteps[PLAYER_1] != nullptr );
 
 	EDIT_MODE.Load( m_sName, "EditMode" );
@@ -1454,7 +1454,7 @@ void ScreenEdit::Init()
 	}
 	GAMESTATE->m_bSideIsJoined[PLAYER_1] = true;
 
-	m_pSong = GAMESTATE->m_pCurSong;
+	m_pSong = GAMESTATE->get_curr_song();
 	m_pSteps = GAMESTATE->m_pCurSteps[PLAYER_1];
 
 	/*	The user will most likely switch into Step Timing after laying down
@@ -1486,6 +1486,8 @@ void ScreenEdit::Init()
 
 	this->AddChild( &m_Background );
 
+	m_pSteps->GetTimingData()->RequestLookup();
+
 	// The option menu actor takes care of setting the noteskin. -Kyz
 	m_pSteps->GetNoteData(m_NoteDataEdit);
 	m_NoteFieldEdit.set_note_data(&m_NoteDataEdit, m_pSteps->GetTimingData(), m_pSteps->m_StepsType);
@@ -1516,14 +1518,14 @@ void ScreenEdit::Init()
 
 	m_Clipboard.SetNumTracks( m_NoteDataEdit.GetNumTracks() );
 
-	clipboardFullTiming = GAMESTATE->m_pCurSong->m_SongTiming; // always have a backup.
+	clipboardFullTiming = GAMESTATE->get_curr_song()->m_SongTiming; // always have a backup.
 	clipboard_full_timing= &clipboardFullTiming;
 
 	m_bHasUndo = false;
 	m_Undo.SetNumTracks( m_NoteDataEdit.GetNumTracks() );
 
 	SetDirty(m_NoteDataEdit.IsEmpty()); // require saving if empty.
-	if(GAMESTATE->m_pCurSong->WasLoadedFromAutosave())
+	if(GAMESTATE->get_curr_song()->WasLoadedFromAutosave())
 	{
 		SetDirty(true);
 	}
@@ -1588,6 +1590,10 @@ void ScreenEdit::Init()
 
 ScreenEdit::~ScreenEdit()
 {
+	if(m_pSteps != nullptr)
+	{
+		m_pSteps->GetTimingData()->ReleaseLookup();
+	}
 	// UGLY: Don't delete the Song's steps.
 	m_SongLastSave.DetachSteps();
 
@@ -1615,7 +1621,7 @@ void ScreenEdit::EndScreen()
 	// complete. -Kyz
 	if(m_should_invalidate)
 	{
-		SONGMAN->Invalidate(GAMESTATE->m_pCurSong);
+		SONGMAN->Invalidate(GAMESTATE->get_curr_song());
 	}
 	ScreenWithMenuElements::EndScreen();
 
@@ -1698,7 +1704,7 @@ void ScreenEdit::Update( float fDeltaTime )
 	{
 		RageTimer tm;
 		const float fSeconds = m_pSoundMusic->GetPositionSeconds( nullptr, &tm );
-		GAMESTATE->UpdateSongPosition( fSeconds, GAMESTATE->m_pCurSong->m_SongTiming, tm );
+		GAMESTATE->UpdateSongPosition( fSeconds, GAMESTATE->get_curr_song()->m_SongTiming, tm );
 	}
 
 	if(m_EditState == STATE_EDITING)
@@ -1712,7 +1718,7 @@ void ScreenEdit::Update( float fDeltaTime )
 		{
 			// TODO: Configurable approach speed. -Kyz
 			fapproach(m_curr_speed, m_goal_speed, fDeltaTime*4);
-			m_NoteFieldEdit.set_speed(0.f, 0.f, m_curr_speed, 0.f, 0.f, 1.f);
+			m_NoteFieldEdit.set_speed(m_curr_speed);
 		}
 	}
 
@@ -2051,7 +2057,7 @@ void ScreenEdit::UpdateTextInfo()
 			   SONG_TIMING.GetValue().c_str() ) );
 		sText += rage_fmt_wrapper(BEAT_0_OFFSET_FORMAT,
 			  BEAT_0_OFFSET.GetValue().c_str(),
-			  GetAppropriateTiming().m_fBeat0OffsetInSeconds );
+			GetAppropriateTiming().get_offset());
 		sText += rage_fmt_wrapper(PREVIEW_START_FORMAT, PREVIEW_START.GetValue().c_str(), m_pSong->m_fMusicSampleStartSeconds );
 		sText += rage_fmt_wrapper(PREVIEW_LENGTH_FORMAT, PREVIEW_LENGTH.GetValue().c_str(), m_pSong->m_fMusicSampleLengthSeconds );
 		if(record_hold_seconds < record_hold_default - .001f ||
@@ -2119,7 +2125,13 @@ bool ScreenEdit::Input( const InputEventPlus &input )
 
 	EditButton EditB = DeviceToEdit( input.DeviceI );
 	if( EditB == EditButton_Invalid )
-		EditB = MenuButtonToEditButton( input.MenuI );
+	{
+		// I don't believe there's an actual good reason to be controlling edit
+		// mode with the menu/gameplay buttons when there are already keys mapped
+		// for everything.  Doing so just makes it harder to assign keys for new
+		// things. -Kyz
+		//EditB = MenuButtonToEditButton( input.MenuI );
+	}
 
 	if( EditB == EDIT_BUTTON_REMOVE_NOTE )
 	{
@@ -2380,6 +2392,11 @@ bool ScreenEdit::InputEdit( const InputEventPlus &input, EditButton EditB )
 				break;
 			}
 
+			if(m_NoteFieldEdit.is_in_reverse())
+			{
+				fBeatsToMove *= -1;
+			}
+
 			float fDestinationBeat = GetBeat() + fBeatsToMove;
 			fDestinationBeat = Quantize( fDestinationBeat, NoteTypeToBeat(m_SnapDisplay.GetNoteType()) );
 
@@ -2390,6 +2407,11 @@ bool ScreenEdit::InputEdit( const InputEventPlus &input, EditButton EditB )
 		{
 			float fDestinationBeat = GetBeat() + beatsPerMeasure;
 			fDestinationBeat = ftruncf( fDestinationBeat, (float)beatsPerMeasure );
+			if(m_NoteFieldEdit.is_in_reverse())
+			{
+				fDestinationBeat= QuantizeUp( GetBeat(), (float)beatsPerMeasure );
+				fDestinationBeat -= (float)beatsPerMeasure;
+			}
 			ScrollTo( fDestinationBeat );
 			return true;
 		}
@@ -2397,6 +2419,11 @@ bool ScreenEdit::InputEdit( const InputEventPlus &input, EditButton EditB )
 		{
 			float fDestinationBeat = QuantizeUp( GetBeat(), (float)beatsPerMeasure );
 			fDestinationBeat -= (float)beatsPerMeasure;
+			if(m_NoteFieldEdit.is_in_reverse())
+			{
+				fDestinationBeat= GetBeat() + beatsPerMeasure;
+				fDestinationBeat = ftruncf( fDestinationBeat, (float)beatsPerMeasure );
+			}
 			ScrollTo( fDestinationBeat );
 			return true;
 		}
@@ -2531,7 +2558,7 @@ bool ScreenEdit::InputEdit( const InputEventPlus &input, EditButton EditB )
 			// Get all Steps of this StepsType
 			const StepsType st = pSteps->m_StepsType;
 			vector<Steps*> vSteps;
-			SongUtil::GetSteps( GAMESTATE->m_pCurSong, vSteps, st );
+			SongUtil::GetSteps( GAMESTATE->get_curr_song(), vSteps, st );
 
 			// Sort them by difficulty.
 			StepsUtil::SortStepsByTypeAndDifficulty( vSteps );
@@ -2726,7 +2753,7 @@ bool ScreenEdit::InputEdit( const InputEventPlus &input, EditButton EditB )
 				else
 					fDelta *= 40;
 			}
-			GetAppropriateTimingForUpdate().m_fBeat0OffsetInSeconds += fDelta;
+			GetAppropriateTimingForUpdate().adjust_offset(fDelta);
 			(fDelta>0 ? m_soundValueIncrease : m_soundValueDecrease).Play(true);
 			if (GAMESTATE->m_bIsUsingStepTiming)
 			{
@@ -2734,8 +2761,8 @@ bool ScreenEdit::InputEdit( const InputEventPlus &input, EditButton EditB )
 			}
 			else
 			{
-				GAMESTATE->m_pCurSong->m_Attacks.UpdateStartTimes(fDelta);
-				GAMESTATE->m_pCurSong->m_fMusicSampleStartSeconds += fDelta;
+				GAMESTATE->get_curr_song()->m_Attacks.UpdateStartTimes(fDelta);
+				GAMESTATE->get_curr_song()->m_fMusicSampleStartSeconds += fDelta;
 			}
 			SetDirty( true );
 		}
@@ -3389,10 +3416,10 @@ bool ScreenEdit::InputPlay( const InputEventPlus &input, EditButton EditB )
 					fOffsetDelta *= 40;
 			}
 
-			GetAppropriateTimingForUpdate().m_fBeat0OffsetInSeconds += fOffsetDelta;
+			GetAppropriateTimingForUpdate().adjust_offset(fOffsetDelta);
 			if (!GAMESTATE->m_bIsUsingStepTiming)
 			{
-				GAMESTATE->m_pCurSong->m_fMusicSampleStartSeconds += fOffsetDelta;
+				GAMESTATE->get_curr_song()->m_fMusicSampleStartSeconds += fOffsetDelta;
 			}
 		}
 			return true;
@@ -3499,6 +3526,10 @@ void ScreenEdit::TransitionEditState( EditState em )
 	case STATE_RECORDING:
 	{
 		m_NoteDataEdit.RevalidateATIs(vector<int>(), false);
+		// Clear timed mods on the notefield, so gimmick charts don't have to do
+		// it manually.  We can't clear permanent mods because that's where speed
+		// and other stuff that should be persistent is.  -Kyz
+		m_Player->get_note_field_because_i_really_need_it_for_edit_mode()->clear_timed_mods();
 		if( bStateChanging )
 			AdjustSync::ResetOriginalSyncData();
 
@@ -3823,9 +3854,9 @@ void ScreenEdit::HandleScreenMessage( const ScreenMessage SM )
 		float fBeat0 = StringToFloat( ScreenTextEntry::s_sLastAnswer );
 
 		TimingData &timing = GetAppropriateTimingForUpdate();
-		float old = timing.m_fBeat0OffsetInSeconds;
-		timing.m_fBeat0OffsetInSeconds = fBeat0;
-		float delta = timing.m_fBeat0OffsetInSeconds - old;
+		float old = timing.get_offset();
+		timing.set_offset(fBeat0);
+		float delta = timing.get_offset() - old;
 
 		if (GAMESTATE->m_bIsUsingStepTiming)
 		{
@@ -3833,8 +3864,8 @@ void ScreenEdit::HandleScreenMessage( const ScreenMessage SM )
 		}
 		else
 		{
-			GAMESTATE->m_pCurSong->m_Attacks.UpdateStartTimes(delta);
-			GAMESTATE->m_pCurSong->m_fMusicSampleStartSeconds += delta;
+			GAMESTATE->get_curr_song()->m_Attacks.UpdateStartTimes(delta);
+			GAMESTATE->get_curr_song()->m_fMusicSampleStartSeconds += delta;
 		}
 
 		SetDirty( true );
@@ -3980,7 +4011,7 @@ void ScreenEdit::HandleScreenMessage( const ScreenMessage SM )
 			int iCourseEntryIndex = -1;
 			for (auto i = pCourse->m_vEntries.begin(); i != pCourse->m_vEntries.end(); ++i)
 			{
-				if( i->songID.ToSong() == GAMESTATE->m_pCurSong.Get() )
+				if(i->songID.ToSong() == GAMESTATE->get_curr_song())
 					iCourseEntryIndex = i - pCourse->m_vEntries.begin();
 			}
 
@@ -4508,7 +4539,7 @@ void ScreenEdit::HandleScreenMessage( const ScreenMessage SM )
 		 * saved on quit. -aj */
 
 		// At this point, the last good song copy is in use.
-		Song *pSong = GAMESTATE->m_pCurSong;
+		Song *pSong = GAMESTATE->get_curr_song();
 		const vector<Steps*> &apSteps = pSong->GetAllSteps();
 		vector<Steps*> apToDelete;
 		for (auto *s: apSteps)
@@ -4584,8 +4615,8 @@ void ScreenEdit::PerformSave(bool autosave)
 	m_pSteps->SetNoteData( m_NoteDataEdit );
 
 	// don't forget the attacks.
-	m_pSong->m_Attacks = GAMESTATE->m_pCurSong->m_Attacks;
-	m_pSong->m_sAttackString = GAMESTATE->m_pCurSong->m_Attacks.ToVectorString();
+	m_pSong->m_Attacks = GAMESTATE->get_curr_song()->m_Attacks;
+	m_pSong->m_sAttackString = GAMESTATE->get_curr_song()->m_Attacks.ToVectorString();
 	m_pSteps->m_Attacks = GAMESTATE->m_pCurSteps[PLAYER_1]->m_Attacks;
 	m_pSteps->m_sAttackString = GAMESTATE->m_pCurSteps[PLAYER_1]->m_Attacks.ToVectorString();
 
@@ -4711,37 +4742,37 @@ static void ChangeStepMusic(const std::string& sNew)
 
 static void ChangeMainTitle( const std::string &sNew )
 {
-	Song* pSong = GAMESTATE->m_pCurSong;
+	Song* pSong = GAMESTATE->get_curr_song();
 	pSong->m_sMainTitle = sNew;
 }
 
 static void ChangeSubTitle( const std::string &sNew )
 {
-	Song* pSong = GAMESTATE->m_pCurSong;
+	Song* pSong = GAMESTATE->get_curr_song();
 	pSong->m_sSubTitle = sNew;
 }
 
 static void ChangeArtist( const std::string &sNew )
 {
-	Song* pSong = GAMESTATE->m_pCurSong;
+	Song* pSong = GAMESTATE->get_curr_song();
 	pSong->m_sArtist = sNew;
 }
 
 static void ChangeGenre( const std::string &sNew )
 {
-	Song* pSong = GAMESTATE->m_pCurSong;
+	Song* pSong = GAMESTATE->get_curr_song();
 	pSong->m_sGenre = sNew;
 }
 
 static void ChangeCredit( const std::string &sNew )
 {
-	Song* pSong = GAMESTATE->m_pCurSong;
+	Song* pSong = GAMESTATE->get_curr_song();
 	pSong->m_sCredit = sNew;
 }
 
 static void ChangePreview(const std::string& sNew)
 {
-	Song* pSong = GAMESTATE->m_pCurSong;
+	Song* pSong = GAMESTATE->get_curr_song();
 	if(!sNew.empty())
 	{
 		std::string error;
@@ -4765,41 +4796,41 @@ static void ChangePreview(const std::string& sNew)
 
 static void ChangeMainTitleTranslit( const std::string &sNew )
 {
-	Song* pSong = GAMESTATE->m_pCurSong;
+	Song* pSong = GAMESTATE->get_curr_song();
 	pSong->m_sMainTitleTranslit = sNew;
 }
 
 static void ChangeSubTitleTranslit( const std::string &sNew )
 {
-	Song* pSong = GAMESTATE->m_pCurSong;
+	Song* pSong = GAMESTATE->get_curr_song();
 	pSong->m_sSubTitleTranslit = sNew;
 }
 
 static void ChangeArtistTranslit( const std::string &sNew )
 {
-	Song* pSong = GAMESTATE->m_pCurSong;
+	Song* pSong = GAMESTATE->get_curr_song();
 	pSong->m_sArtistTranslit = sNew;
 }
 
 static void ChangeLastSecondHint( const std::string &sNew )
 {
-	Song &s = *GAMESTATE->m_pCurSong;
+	Song &s = *GAMESTATE->get_curr_song();
 	s.SetSpecifiedLastSecond(StringToFloat(sNew));
 }
 
 static void ChangePreviewStart( const std::string &sNew )
 {
-	GAMESTATE->m_pCurSong->m_fMusicSampleStartSeconds = StringToFloat( sNew );
+	GAMESTATE->get_curr_song()->m_fMusicSampleStartSeconds = StringToFloat( sNew );
 }
 
 static void ChangePreviewLength( const std::string &sNew )
 {
-	GAMESTATE->m_pCurSong->m_fMusicSampleLengthSeconds = StringToFloat( sNew );
+	GAMESTATE->get_curr_song()->m_fMusicSampleLengthSeconds = StringToFloat( sNew );
 }
 
 static void ChangeMinBPM( const std::string &sNew )
 {
-	GAMESTATE->m_pCurSong->m_fSpecifiedBPMMin = StringToFloat( sNew );
+	GAMESTATE->get_curr_song()->m_fSpecifiedBPMMin = StringToFloat( sNew );
 }
 
 static void ChangeStepsMinBPM(const std::string &sNew)
@@ -4810,7 +4841,7 @@ static void ChangeStepsMinBPM(const std::string &sNew)
 
 static void ChangeMaxBPM( const std::string &sNew )
 {
-	GAMESTATE->m_pCurSong->m_fSpecifiedBPMMax = StringToFloat( sNew );
+	GAMESTATE->get_curr_song()->m_fSpecifiedBPMMax = StringToFloat( sNew );
 }
 
 static void ChangeStepsMaxBPM(const std::string &sNew)
@@ -4883,7 +4914,7 @@ void ScreenEdit::DisplayTimingMenu()
 	const TimingData &pTime = GetAppropriateTiming();
 	bool bHasSpeedOnThisRow = pTime.GetSpeedSegmentAtRow( row )->GetRow() == row;
 
-	g_TimingDataInformation.rows[beat_0_offset].SetOneUnthemedChoice( FloatToString(pTime.m_fBeat0OffsetInSeconds) );
+	g_TimingDataInformation.rows[beat_0_offset].SetOneUnthemedChoice( FloatToString(pTime.get_offset()) );
 	g_TimingDataInformation.rows[bpm].SetOneUnthemedChoice( FloatToString(pTime.GetBPMAtRow( row ) ) );
 	g_TimingDataInformation.rows[stop].SetOneUnthemedChoice( FloatToString(pTime.GetStopAtRow( row ) ) ) ;
 	g_TimingDataInformation.rows[delay].SetOneUnthemedChoice( FloatToString(pTime.GetDelayAtRow( row ) ) );
@@ -4926,7 +4957,7 @@ int ScreenEdit::GetSongOrNotesEnd()
 	using std::max;
 	return max(m_iStartPlayingAt, max(m_NoteDataEdit.GetLastRow(),
 			BeatToNoteRow(m_pSteps->GetTimingData()->GetBeatFromElapsedTime(
-					GAMESTATE->m_pCurSong->m_fMusicLengthSeconds))));
+					GAMESTATE->get_curr_song()->m_fMusicLengthSeconds))));
 }
 
 void ScreenEdit::HandleMainMenuChoice( MainMenuChoice c, const vector<int> &iAnswers )
@@ -5138,7 +5169,7 @@ void ScreenEdit::HandleMainMenuChoice( MainMenuChoice c, const vector<int> &iAns
 			break;
 		case edit_song_info:
 			{
-				const Song* pSong = GAMESTATE->m_pCurSong;
+				const Song* pSong = GAMESTATE->get_curr_song();
 				g_SongInformation.rows[main_title].SetOneUnthemedChoice( pSong->m_sMainTitle );
 				g_SongInformation.rows[sub_title].SetOneUnthemedChoice( pSong->m_sSubTitle );
 				g_SongInformation.rows[artist].SetOneUnthemedChoice( pSong->m_sArtist );
@@ -5475,8 +5506,8 @@ void ScreenEdit::HandleAlterMenuChoice(AlterMenuChoice c, const vector<int> &ans
 				selection_start);
 			float fMarkerEnd = GetAppropriateTiming().GetElapsedTimeFromBeat(
 				selection_end);
-			GAMESTATE->m_pCurSong->m_fMusicSampleStartSeconds = fMarkerStart;
-			GAMESTATE->m_pCurSong->m_fMusicSampleLengthSeconds = fMarkerEnd - fMarkerStart;
+			GAMESTATE->get_curr_song()->m_fMusicSampleStartSeconds = fMarkerStart;
+			GAMESTATE->get_curr_song()->m_fMusicSampleLengthSeconds = fMarkerEnd - fMarkerStart;
 			break;
 		}
 		case convert_to_pause:
@@ -5740,7 +5771,7 @@ void ScreenEdit::HandleAreaMenuChoice( AreaMenuChoice c, const vector<int> &iAns
 		case last_second_at_beat:
 		{
 			const TimingData &timing = GetAppropriateTiming();
-			Song &s = *GAMESTATE->m_pCurSong;
+			Song &s = *GAMESTATE->get_curr_song();
 			s.SetSpecifiedLastSecond(timing.GetElapsedTimeFromBeat(GetBeat()));
 			break;
 		}
@@ -5892,7 +5923,7 @@ static LocalizedString ENTER_PREVIEW_START		("ScreenEdit","Enter a new preview s
 static LocalizedString ENTER_PREVIEW_LENGTH		("ScreenEdit","Enter a new preview length.");
 void ScreenEdit::HandleSongInformationChoice( SongInformationChoice c, const vector<int> &iAnswers )
 {
-	Song* pSong = GAMESTATE->m_pCurSong;
+	Song* pSong = GAMESTATE->get_curr_song();
 	pSong->m_DisplayBPMType = static_cast<DisplayBPM>(iAnswers[display_bpm]);
 
 	switch( c )
@@ -5978,7 +6009,7 @@ void ScreenEdit::HandleTimingDataInformationChoice( TimingDataInformationChoice 
 		ScreenTextEntry::TextEntry(
 			SM_BackFromBeat0Change,
 			ENTER_BEAT_0_OFFSET.GetValue(),
-			FloatToString(GetAppropriateTiming().m_fBeat0OffsetInSeconds),
+			FloatToString(GetAppropriateTiming().get_offset()),
 			20
 			);
 		break;
@@ -6120,7 +6151,7 @@ void ScreenEdit::HandleTimingDataInformationChoice( TimingDataInformationChoice 
 		}
 		else
 		{
-			GAMESTATE->m_pCurSong->m_SongTiming = clipboardFullTiming;
+			GAMESTATE->get_curr_song()->m_SongTiming = clipboardFullTiming;
 		}
 		SetDirty(true);
 		break;
@@ -6316,11 +6347,11 @@ void ScreenEdit::SetupCourseAttacks()
 	else
 	{
 		const PlayerOptions &p = GAMESTATE->m_pPlayerState[PLAYER_1]->m_PlayerOptions.GetCurrent();
-		if (GAMESTATE->m_pCurSong && p.m_fNoAttack == 0 && p.m_fRandAttack == 0 )
+		if (GAMESTATE->get_curr_song() && p.m_fNoAttack == 0 && p.m_fRandAttack == 0 )
 		{
 			AttackArray &attacks = GAMESTATE->m_bIsUsingStepTiming ?
 				GAMESTATE->m_pCurSteps[PLAYER_1]->m_Attacks :
-				GAMESTATE->m_pCurSong->m_Attacks;
+				GAMESTATE->get_curr_song()->m_Attacks;
 
 			if (attacks.size() > 0)
 			{
@@ -6340,11 +6371,11 @@ void ScreenEdit::SetupCourseAttacks()
 
 void ScreenEdit::CopyToLastSave()
 {
-	ASSERT( GAMESTATE->m_pCurSong != nullptr );
+	ASSERT( GAMESTATE->get_curr_song() != nullptr );
 	ASSERT( GAMESTATE->m_pCurSteps[PLAYER_1] != nullptr );
-	m_SongLastSave = *GAMESTATE->m_pCurSong;
+	m_SongLastSave = *GAMESTATE->get_curr_song();
 	m_vStepsLastSave.clear();
-	const vector<Steps*> &vSteps = GAMESTATE->m_pCurSong->GetStepsByStepsType( GAMESTATE->m_pCurSteps[PLAYER_1]->m_StepsType );
+	const vector<Steps*> &vSteps = GAMESTATE->get_curr_song()->GetStepsByStepsType( GAMESTATE->m_pCurSteps[PLAYER_1]->m_StepsType );
 	for (auto *it: vSteps)
 	{
 		m_vStepsLastSave.push_back( *it );
@@ -6356,8 +6387,8 @@ void ScreenEdit::CopyFromLastSave()
 	// We are assuming two things here:
 	// 1) No steps can be created by ScreenEdit
 	// 2) No steps can be deleted by ScreenEdit (except possibly when we exit)
-	*GAMESTATE->m_pCurSong = m_SongLastSave;
-	const vector<Steps*> &vSteps = GAMESTATE->m_pCurSong->GetStepsByStepsType( GAMESTATE->m_pCurSteps[PLAYER_1]->m_StepsType );
+	*GAMESTATE->get_curr_song() = m_SongLastSave;
+	const vector<Steps*> &vSteps = GAMESTATE->get_curr_song()->GetStepsByStepsType( GAMESTATE->m_pCurSteps[PLAYER_1]->m_StepsType );
 	ASSERT_M( vSteps.size() == m_vStepsLastSave.size(), fmt::sprintf("Step sizes don't match: %d, %d", int(vSteps.size()), int(m_vStepsLastSave.size())) );
 	for( unsigned i = 0; i < vSteps.size(); ++i )
 		*vSteps[i] = m_vStepsLastSave[i];
@@ -6373,20 +6404,20 @@ void ScreenEdit::RevertFromDisk()
 	// If m_bInStepEditor is true while the song is reloaded, it screws up
 	// loading and results in the steps being cleared.  -Kyz
 	GAMESTATE->m_bInStepEditor= false;
-	GAMESTATE->m_pCurSong->ReloadFromSongDir();
+	GAMESTATE->get_curr_song()->ReloadFromSongDir();
 	GAMESTATE->m_bInStepEditor= true;
 
-	Steps *pNewSteps = id.ToSteps( GAMESTATE->m_pCurSong, true );
+	Steps *pNewSteps = id.ToSteps( GAMESTATE->get_curr_song(), true );
 	if( !pNewSteps )
 	{
 		// If the Steps we were currently editing vanished when we did the revert,
 		// put a blank Steps in its place.  Note that this does not have to be the
 		// work of someone maliciously changing the simfile; it could happen to
 		// someone editing a new stepchart and reverting from disk, for example.
-		pNewSteps = GAMESTATE->m_pCurSong->CreateSteps();
+		pNewSteps = GAMESTATE->get_curr_song()->CreateSteps();
 		pNewSteps->CreateBlank( id.GetStepsType() );
 		pNewSteps->SetDifficulty( id.GetDifficulty() );
-		GAMESTATE->m_pCurSong->AddSteps( pNewSteps );
+		GAMESTATE->get_curr_song()->AddSteps( pNewSteps );
 	}
 	GAMESTATE->m_pCurSteps[PLAYER_1].Set( pNewSteps );
 	m_pSteps = pNewSteps;
@@ -6434,7 +6465,7 @@ void ScreenEdit::CheckNumberOfNotesAndUndo()
 		return;
 
 	const float fBeat = GAMESTATE->m_pPlayerState[PLAYER_1]->m_Position.m_fSongBeat;
-	const TimeSignatureSegment * curTime = GAMESTATE->m_pCurSong->m_SongTiming.GetTimeSignatureSegmentAtBeat( fBeat );
+	const TimeSignatureSegment * curTime = GAMESTATE->get_curr_song()->m_SongTiming.GetTimeSignatureSegmentAtBeat( fBeat );
 	int rowsPerMeasure = curTime->GetDen() * curTime->GetNum();
 
 	for( int row=0; row<=m_NoteDataEdit.GetLastRow(); row+=rowsPerMeasure )
@@ -6473,7 +6504,7 @@ float ScreenEdit::GetMaximumBeatForNewNote() const
 	case EditMode_CourseMods:
 	case EditMode_Home:
 		{
-			Song &s = *GAMESTATE->m_pCurSong;
+			Song &s = *GAMESTATE->get_curr_song();
 			float fEndBeat = s.GetLastBeat();
 
 			/* Round up to the next measure end.  Some songs end on weird beats
@@ -6540,7 +6571,7 @@ struct EditHelpLine
 	}
 };
 // TODO: Identify which of these can be removed and sent to a readme.
-static std::array<EditHelpLine, 28> g_EditHelpLines =
+static std::array<EditHelpLine, 29> g_EditHelpLines =
 {
 	{
 		EditHelpLine( "Move cursor", EDIT_BUTTON_SCROLL_UP_LINE, EDIT_BUTTON_SCROLL_DOWN_LINE ),
@@ -6548,6 +6579,7 @@ static std::array<EditHelpLine, 28> g_EditHelpLines =
 		EditHelpLine( "Jump measure", EDIT_BUTTON_SCROLL_PREV_MEASURE, EDIT_BUTTON_SCROLL_NEXT_MEASURE ),
 		EditHelpLine( "Select region", EDIT_BUTTON_SCROLL_SELECT ),
 		EditHelpLine( "Jump to first/last beat", EDIT_BUTTON_SCROLL_HOME, EDIT_BUTTON_SCROLL_END ),
+		EditHelpLine( "Jump to previous/next note", EDIT_BUTTON_SCROLL_PREV, EDIT_BUTTON_SCROLL_NEXT ),
 		EditHelpLine( "Change zoom", EDIT_BUTTON_SCROLL_SPEED_UP, EDIT_BUTTON_SCROLL_SPEED_DOWN ),
 		EditHelpLine( "Play", EDIT_BUTTON_PLAY_SELECTION ),
 		EditHelpLine( "Play current beat to end", EDIT_BUTTON_PLAY_FROM_CURSOR ),

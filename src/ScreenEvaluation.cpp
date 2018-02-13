@@ -109,12 +109,12 @@ void ScreenEvaluation::Init()
 		GAMESTATE->SetCurrentStyle( GAMEMAN->GameAndStringToStyle(GAMEMAN->GetDefaultGame(),"versus"), PLAYER_INVALID );
 		ss.m_playMode = GAMESTATE->m_PlayMode;
 		ss.m_Stage = Stage_1st;
-		enum_add( ss.m_Stage, rand()%3 );
-		ss.m_EarnedExtraStage = (EarnedExtraStage)(rand() % NUM_EarnedExtraStage);
+		enum_add(ss.m_Stage, random_up_to(3));
+		ss.m_EarnedExtraStage = (EarnedExtraStage)(random_up_to(NUM_EarnedExtraStage));
 		GAMESTATE->SetMasterPlayerNumber(PLAYER_1);
-		GAMESTATE->m_pCurSong.Set( SONGMAN->GetRandomSong() );
-		ss.m_vpPlayedSongs.push_back( GAMESTATE->m_pCurSong );
-		ss.m_vpPossibleSongs.push_back( GAMESTATE->m_pCurSong );
+		GAMESTATE->set_curr_song(SONGMAN->GetRandomSong());
+		ss.m_vpPlayedSongs.push_back( GAMESTATE->get_curr_song() );
+		ss.m_vpPossibleSongs.push_back( GAMESTATE->get_curr_song() );
 		GAMESTATE->m_pCurCourse.Set( SONGMAN->GetRandomCourse() );
 		GAMESTATE->m_iCurrentStageIndex = 0;
 		FOREACH_ENUM( PlayerNumber, p )
@@ -128,7 +128,7 @@ void ScreenEvaluation::Init()
 			SO_GROUP_ASSIGN( GAMESTATE->m_SongOptions, ModsLevel_Stage, m_fMusicRate, 1.1f );
 
 			GAMESTATE->JoinPlayer( p );
-			GAMESTATE->m_pCurSteps[p].Set( GAMESTATE->m_pCurSong->GetAllSteps()[0] );
+			GAMESTATE->m_pCurSteps[p].Set( GAMESTATE->get_curr_song()->GetAllSteps()[0] );
 			if( GAMESTATE->m_pCurCourse )
 			{
 				vector<Trail*> apTrails;
@@ -152,7 +152,7 @@ void ScreenEvaluation::Init()
 
 		FOREACH_PlayerNumber( p )
 		{
-			float fSeconds = GAMESTATE->m_pCurSong->GetStepsSeconds();
+			float fSeconds = GAMESTATE->get_curr_song()->GetStepsSeconds();
 			ss.m_player[p].m_iActualDancePoints = RandomInt( 3 );
 			ss.m_player[p].m_iPossibleDancePoints = 2;
 			if( RandomInt(2) )
@@ -185,11 +185,11 @@ void ScreenEvaluation::Init()
 			ss.m_player[p].m_iTapNoteScores[TNS_W3] = RandomInt( 3 );
 			ss.m_player[p].m_iPossibleGradePoints = 4*ScoreKeeperNormal::TapNoteScoreToGradePoints(TNS_W1, false);
 			ss.m_player[p].m_fLifeRemainingSeconds = randomf( 90, 580 );
-			ss.m_player[p].m_iScore = rand() % (900*1000*1000);
-			ss.m_player[p].m_iPersonalHighScoreIndex = (rand() % 3) - 1;
-			ss.m_player[p].m_iMachineHighScoreIndex = (rand() % 3) - 1;
-			ss.m_player[p].m_PeakComboAward = (PeakComboAward)(rand()%NUM_PeakComboAward);
-			ss.m_player[p].m_StageAward = (StageAward)(rand()%NUM_StageAward);
+			ss.m_player[p].m_iScore = random_up_to(900*1000*1000);
+			ss.m_player[p].m_iPersonalHighScoreIndex = (random_up_to(3)) - 1;
+			ss.m_player[p].m_iMachineHighScoreIndex = (random_up_to(3)) - 1;
+			ss.m_player[p].m_PeakComboAward = (PeakComboAward)(random_up_to(NUM_PeakComboAward));
+			ss.m_player[p].m_StageAward = (StageAward)(random_up_to(NUM_StageAward));
 
 			FOREACH_ENUM( RadarCategory, rc )
 			{
@@ -211,8 +211,8 @@ void ScreenEvaluation::Init()
 					case RadarCategory_Rolls:
 					case RadarCategory_Lifts:
 					case RadarCategory_Fakes:
-						ss.m_player[p].m_radarPossible[rc] = 1 + (rand() % 200);
-						ss.m_player[p].m_radarActual[rc] = rand() % (int)(ss.m_player[p].m_radarPossible[rc]);
+						ss.m_player[p].m_radarPossible[rc] = 1 + (random_up_to(200));
+						ss.m_player[p].m_radarActual[rc] = random_up_to(int(ss.m_player[p].m_radarPossible[rc]));
 						break;
 					default: break;
 				}
@@ -289,7 +289,7 @@ void ScreenEvaluation::Init()
 			if( GAMESTATE->IsCourseMode() )
 				m_LargeBanner.LoadFromCourse( GAMESTATE->m_pCurCourse );
 			else
-				m_LargeBanner.LoadFromSong( GAMESTATE->m_pCurSong );
+				m_LargeBanner.LoadFromSong( GAMESTATE->get_curr_song() );
 			m_LargeBanner.ScaleToClipped( BANNER_WIDTH, BANNER_HEIGHT );
 			m_LargeBanner.SetName( "LargeBanner" );
 			ActorUtil::LoadAllCommands( m_LargeBanner, m_sName );

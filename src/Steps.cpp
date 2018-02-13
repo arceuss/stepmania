@@ -29,6 +29,7 @@
 #include "NotesLoaderKSF.h"
 #include "NotesLoaderBMS.h"
 #include "NotesLoaderChart.h"
+#include "NotesLoaderMID.h"
 #include <algorithm>
 
 /* register DisplayBPM with StringConversion */
@@ -156,6 +157,10 @@ bool Steps::GetNoteDataFromSimfile()
 	{
 		return BMSLoader::LoadNoteDataFromSimfile(stepFile, *this);
 	}
+   else if (extension == "mid")
+   {
+      return MIDILoader::LoadNoteDataFromSimfile(stepFile, *this);
+   }
    else if (extension == "chart")
    {
       return CHARTLoader::LoadNoteDataFromSimfile(stepFile, *this);
@@ -357,6 +362,15 @@ void Steps::CalculateRadarValues( float fMusicLengthSeconds )
 		std::fill_n( m_CachedRadarValues + 1, NUM_PLAYERS-1, m_CachedRadarValues[0] );
 	}
 	GAMESTATE->SetProcessedTimingData(nullptr);
+}
+
+void Steps::ChangeFilenamesForCustomSong()
+{
+	m_sFilename= custom_songify_path(m_sFilename);
+	if(!m_MusicFile.empty())
+	{
+		m_MusicFile= custom_songify_path(m_MusicFile);
+	}
 }
 
 void Steps::Decompress() const

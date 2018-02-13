@@ -996,14 +996,12 @@ bool ScreenSelectMusic::DetectCodes( const InputEventPlus &input )
 	}
 	else if( CodeDetector::EnteredCloseFolder(input.GameI.controller) )
 	{
-		if( GAMESTATE->IsAnExtraStageAndSelectionLocked() )
-			m_soundLocked.Play(true);
-		else
-		{
-			std::string sCurSection = m_MusicWheel.GetSelectedSection();
-			m_MusicWheel.SelectSection(sCurSection);
-			m_MusicWheel.SetOpenSection("");
-			AfterMusicChange();
+		
+		if( GAMESTATE->IsAnExtraStageAndSelectionLocked() ) 
+			m_soundLocked.Play(true); 
+		else 
+		{ 
+			CloseCurrentSection();
 		}
 	}
 	else
@@ -1011,6 +1009,18 @@ bool ScreenSelectMusic::DetectCodes( const InputEventPlus &input )
 		return false;
 	}
 	return true;
+}
+
+
+//Unfortunately, this is the only safe way to close the folder on the musicwheel while keeping it lua accessible.
+//Putting it in MusicWheel would mean AfterMusicChange() can't be accessed.
+void ScreenSelectMusic::CloseCurrentSection()
+{			
+	std::string sCurSection = m_MusicWheel.GetSelectedSection(); 
+	m_MusicWheel.SelectSection(sCurSection); 
+	m_MusicWheel.SetOpenSection("");
+	AfterMusicChange();
+	MESSAGEMAN->Broadcast("MusicWheelSectionClosed");
 }
 
 void ScreenSelectMusic::UpdateSelectButton( PlayerNumber pn, bool bSelectIsDown )
@@ -1033,7 +1043,7 @@ void ScreenSelectMusic::ChangeSteps( PlayerNumber pn, int dir )
 
 	ASSERT( GAMESTATE->IsHumanPlayer(pn) );
 
-	if( GAMESTATE->m_pCurSong )
+	if( GAMESTATE->get_curr_song() )
 	{
 		m_iSelection[pn] += dir;
 		if( WRAP_CHANGE_STEPS )
@@ -1517,6 +1527,7 @@ bool ScreenSelectMusic::MenuStart( const InputEventPlus &input )
 		// Now that Steps have been chosen, set a Style that can play them.
 		GAMESTATE->SetCompatibleStylesForPlayers();
 		GAMESTATE->ForceSharedSidesMatch();
+		GAMESTATE->prepare_song_for_gameplay();
 
 		/* If we're currently waiting on song assets, abort all except the music
 		 * and start the music, so if we make a choice quickly before background
@@ -1604,11 +1615,11 @@ void ScreenSelectMusic::AfterStepsOrTrailChange( const vector<PlayerNumber> &vpn
 	{
 		ASSERT( GAMESTATE->IsHumanPlayer(pn) );
 
-		if( GAMESTATE->m_pCurSong )
+		if( GAMESTATE->get_curr_song() )
 		{
 			m_iSelection[pn] = Rage::clamp( m_iSelection[pn], 0, static_cast<int>(m_vpSteps.size())-1 );
 
-			Song* pSong = GAMESTATE->m_pCurSong;
+			Song* pSong = GAMESTATE->get_curr_song();
 			Steps* pSteps = m_vpSteps.empty()? nullptr: m_vpSteps[m_iSelection[pn]];
 
 			GAMESTATE->m_pCurSteps[pn].Set( pSteps );
@@ -1740,7 +1751,7 @@ void ScreenSelectMusic::AfterMusicChange()
 		m_MenuTimer->Stall();
 
 	Song* pSong = m_MusicWheel.GetSelectedSong();
-	GAMESTATE->m_pCurSong.Set( pSong );
+	GAMESTATE->set_curr_song(pSong);
 	if( pSong )
 		GAMESTATE->m_pPreferredSong = pSong;
 
@@ -1922,6 +1933,21 @@ void ScreenSelectMusic::AfterMusicChange()
 			if(pStyle == NULL)
 			{
 				lCourse->GetAllTrails(m_vpTrails);
+				auto iter= m_vpTrails.begin();
+				int num_players= GAMESTATE->GetNumPlayersEnabled();
+				Game const* cur_game= GAMESTATE->GetCurrentGame();
+				while(iter != m_vpTrails.end())
+				{
+					Style const* compat= GAMEMAN->GetFirstCompatibleStyle(cur_game, num_players, (*iter)->m_StepsType);
+					if(compat == nullptr)
+					{
+						iter= m_vpTrails.erase(iter);
+					}
+					else
+					{
+						++iter;
+					}
+				}
 			}
 			else
 			{
@@ -2060,7 +2086,8 @@ bool ScreenSelectMusic::can_open_options_list(PlayerNumber pn)
 #include "LuaBinding.h"
 
 /** @brief Allow Lua to have access to the ScreenSelectMusic. */
-class LunaScreenSelectMusic: public Luna<ScreenSelectMusic>
+class LunaScreenSelectMusic: public Luna<ScreenSelectMusic>
+
 {
 public:
 	static int GetGoToOptions( T* p, lua_State *L ) { lua_pushboolean( L, p->GetGoToOptions() ); return 1; }
@@ -2083,6 +2110,11 @@ public:
 		lua_pushboolean(L, p->can_open_options_list(pn));
 		return 1;
 	}
+	static int CloseCurrentSection( T* p, lua_State *L )
+	{
+		p->CloseCurrentSection();
+		COMMON_RETURN_SELF;
+	}
 
 	LunaScreenSelectMusic()
 	{
@@ -2090,6 +2122,7 @@ public:
 		ADD_METHOD( GetMusicWheel );
 		ADD_METHOD( OpenOptionsList );
 		ADD_METHOD( CanOpenOptionsList );
+		ADD_METHOD( CloseCurrentSection );
 	}
 };
 

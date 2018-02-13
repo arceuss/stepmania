@@ -95,7 +95,7 @@ void SMSetMusic(SMSongTagInfo& info)
 }
 void SMSetOffset(SMSongTagInfo& info)
 {
-	info.song->m_SongTiming.m_fBeat0OffsetInSeconds = StringToFloat((*info.params)[1]);
+	info.song->m_SongTiming.set_offset(StringToFloat((*info.params)[1]));
 }
 void SMSetBPMs(SMSongTagInfo& info)
 {
@@ -566,7 +566,7 @@ void SMLoader::ProcessBPMsAndStops(TimingData &out,
 	istopend = vStops.end();
 	for (/* istop */; istop != istopend && istop->first < 0; istop++)
 	{
-		out.m_fBeat0OffsetInSeconds -= istop->second;
+		out.adjust_offset(-istop->second);
 	}
 
 	// Get rid of BPM changes that come before beat 0.  Positive BPMs before
@@ -857,9 +857,15 @@ void SMLoader::ProcessTickcounts( TimingData &out, const std::string line, const
 		}
 
 		const float fTickcountBeat = RowToBeat( arrayTickcountValues[0], rowsPerBeat );
-		int iTicks = Rage::clamp(std::stoi( arrayTickcountValues[1] ), 0, ROWS_PER_BEAT);
-
-		out.AddSegment( TickcountSegment(BeatToNoteRow(fTickcountBeat), iTicks) );
+		try
+		{
+			int iTicks = Rage::clamp(std::stoi( arrayTickcountValues[1] ), 0, ROWS_PER_BEAT);
+			out.AddSegment( TickcountSegment(BeatToNoteRow(fTickcountBeat), iTicks) );
+		}
+		catch(...)
+		{
+			continue;
+		}
 	}
 }
 

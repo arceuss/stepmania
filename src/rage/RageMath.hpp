@@ -30,6 +30,15 @@ namespace Rage
 	
 	/** @brief Calculate the cosine of a number quickly. */
 	float FastCos( float x );
+	
+	/** @brief Calculate the tangent of a number quickly. */
+	float FastTan( float x );
+	
+	/** @brief Calculate the cosecant of a number quickly. */
+	float FastCsc( float x );
+	
+	float TriangleWave( float x );
+	float SquareWave( float x );
 
 	/** @brief Bring a value within range. */
 	template<typename T>
