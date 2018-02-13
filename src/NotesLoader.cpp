@@ -85,12 +85,12 @@ bool NotesLoader::LoadFromDir( const std::string &sPath, Song &out, std::set<std
 	{
 		return KSFLoader::LoadFromDir( sPath, out );
 	}
-   CHARTLoader::GetApplicableFiles( sPath, list );
-   if( !list.empty() )
-      return CHARTLoader::LoadFromDir( sPath, out );
    MIDILoader::GetApplicableFiles( sPath, list );
    if( !list.empty() )
       return MIDILoader::LoadFromDir( sPath, out );
+   CHARTLoader::GetApplicableFiles( sPath, list );
+   if( !list.empty() )
+      return CHARTLoader::LoadFromDir( sPath, out );
 	return false;
 }
 
