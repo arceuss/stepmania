@@ -1,37 +1,33 @@
-#ifndef ERROR_STRINGS_H
-#define ERROR_STRINGS_H
+#ifndef INPUT_HANDLER_SDL_KEYBOARD_H
+#define INPUT_HANDLER_SDL_KEYBOARD_H
 
-#include <string>
-#include <windows.h>
-#include "format.h"
-#include "RageString.hpp"
+#include "InputHandler.h"
 
-template<typename... Args>
-std::string werr_format(int err, std::string const &msg, Args const & ...args)
+struct _SDL_Joystick;
+typedef struct _SDL_Joystick SDL_Joystick;
+
+class InputHandler_SDL : public InputHandler
 {
-	char buf[1024] = "";
-	FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-		0, err, 0, buf, sizeof(buf), nullptr);
+private:
+	std::vector<SDL_Joystick *> m_joysticks;
+	bool m_devices_changed = false;
 
-	// Why is FormatMessage returning text ending with \r\n? (who? -aj)
-	// Perhaps it's because you're on Windows, where newlines are \r\n. -aj
-	std::string text = buf;
-	Rage::replace(text, "\n", "");
-	Rage::replace(text, "\r", " "); // foo\r\nbar -> foo bar
-	text = Rage::trim_right(text); // "foo\r\n" -> "foo"
+	bool RegisterJoystick(int i);
 
-	std::string s = fmt::format(msg, args...);
-	return s += fmt::sprintf(" (%s)", text.c_str());
-}
-std::string ConvertWstringToCodepage( std::wstring s, int iCodePage );
-std::string ConvertUTF8ToACP( const std::string &s );
-std::wstring ConvertCodepageToWString( std::string s, int iCodePage );
-std::string ConvertACPToUTF8( const std::string &s );
+public:
+	void Update();
+	InputHandler_SDL();
+	~InputHandler_SDL();
+	bool DevicesChanged() { return m_devices_changed; }
+	void GetDevicesAndDescriptions(std::vector<InputDeviceInfo>& vDevicesOut);
+};
+#define USE_INPUT_HANDLER_SDL
 
+extern bool has_sdl_input;
 #endif
 
 /*
- * Copyright (c) 2001-2005 Chris Danford, Glenn Maynard
+ * (c) 2001-2004 Chris Danford, Glenn Maynard
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a

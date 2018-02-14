@@ -1,6 +1,6 @@
 local menu_height= 410
 local menu_width= 346
-local menu_x= _screen.w * .25
+local menu_x= _screen.w * .30
 
 local options= {
 	{"item", theme_config, "AutoSetStyle", "bool"},
@@ -10,6 +10,7 @@ local options= {
 	{"item", theme_config, "TimingDisplay", "bool"},
 	{"item", theme_config, "GameplayFooter", "bool"},
 	{"item", theme_config, "Use12HourClock", "bool"},
+	{"item", theme_config, "menu_mode", "choice", {choices= {"two_direction", "two_direction_with_select", "four_direction"}}},
 }
 
 local menu_controller= setmetatable({}, menu_controller_mt)
@@ -45,7 +46,7 @@ return Def.ActorFrame{
 	OnCommand= function(self)
 		menu_sounds= nesty_menus.make_menu_sound_lookup(self)
 		menu_controller:init{
-			actor= self:GetChild("menu"), input_mode= "four_direction",
+			actor= self:GetChild("menu"), input_mode= theme_config:get_data().menu_mode,
 			repeats_to_big= 10, select_goes_to_top= true, data= options,
 			translation_section= "OptionTitles",
 		}
@@ -56,5 +57,5 @@ return Def.ActorFrame{
 	MenuValueChangedMessageCommand= function(self, params)
 		nesty_menus.handle_menu_refresh_message(params, {menu_controller})
 	end,
-	LoadActor(THEME:GetPathG("", "generic_menu.lua"), 1, 352, menu_height, 1, menu_x-(menu_width/2), 138, 36),
+	LoadActor(THEME:GetPathG("", "generic_menu.lua"), 1, 880, menu_height, 1, menu_x-(menu_width/2), 138, 36),
 }
