@@ -476,6 +476,9 @@ void Player::Init(
    
    m_bHOPOPossible = false;
    
+   m_bGradeHopoNow = false;
+   m_bGradeStrumNow = false;
+   
 	m_fActiveRandomAttackStart = -1.0f;
 }
 
@@ -1957,12 +1960,10 @@ bool Player::IsChordHit( int row )
 
 /**
  * Handles fret logic for guitar mode
- * This is all broken, figure out why (debug mode, try/catch maybe?)
+ * TODO: rebuild, try again, then start adding prints
  */
-void Player::DoFretLogic( int col, int row, const RageTimer &tm, bool bRelease, float fNoteOffset )
+void Player::DoFretLogic( int col, bool bRelease )
 {
-   const float fSecondsFromExact = fabsf( fNoteOffset );
-   
    // Update curent state
    m_vbFretIsDown[col] = !bRelease;
    
@@ -1973,7 +1974,7 @@ void Player::DoFretLogic( int col, int row, const RageTimer &tm, bool bRelease, 
       if(!bRelease) m_iTopFret = col;
       else
       {
-         for( int i=col-1; i>=-1; i-- )
+         for( int i=col-1; i>=0; i-- )
          {
             if(m_vbFretIsDown[i])
             {
@@ -1993,15 +1994,39 @@ void Player::DoFretLogic( int col, int row, const RageTimer &tm, bool bRelease, 
          LOG->Trace( "topfret changed! now col 1" );
       */
       
+      // TODO: set flag to grade hopo
+      m_bGradeHopoNow = true;
+   }
+   
+   // if strum was hit
+   if(col == m_iStrumCol && !bRelease)
+   {
+      // TODO: set flag to grade strum later
+      m_bGradeStrumNow = true;
+   }
+}
+
+// Grades guitar notes, had to be seperated since fret logic always happens, but
+void Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset)
+{
+   const float fSecondsFromExact = fabsf( fNoteOffset );
+   
+   if(m_bGradeHopoNow)
+   {
       // Get the note at the top fret
-      NoteData::iterator iter = m_NoteData.FindTapNote( m_iTopFret, row );
+      int idx = 0;
+      if(m_iTopFret >= 0)
+         idx = m_iTopFret;
+      else
+         idx = m_iStrumCol;
+      NoteData::iterator iter = m_NoteData.FindTapNote( idx, row );
       //DEBUG_ASSERT( iter!= m_NoteData.end(col) ); // assert fails here
       TapNote *iterNote = NULL;
-      if(iter!= m_NoteData.end(col))
+      if(iter != m_NoteData.end(idx))
          iterNote = &iter->second;
       
       // Now grade the hopo if one exists
-      if( iter!= m_NoteData.end(col) && (iterNote->type == TapNoteType_HOPO || iterNote->type == TapNoteType_HOPOHold)
+      if( iter != m_NoteData.end(idx) && (iterNote->type == TapNoteType_HOPO || iterNote->type == TapNoteType_HOPOHold)
          && m_bHOPOPossible)
       {
          // Evaluate HOPOs here
@@ -2047,18 +2072,22 @@ void Player::DoFretLogic( int col, int row, const RageTimer &tm, bool bRelease, 
       }
    }
    
-   // if strum was hit
-   if(col == m_iStrumCol && !bRelease)
+   if(m_bGradeStrumNow)
    {
       // Get the note at the top fret
-      NoteData::iterator iter = m_NoteData.FindTapNote( m_iTopFret, row );
+      int idx = 0;
+      if(m_iTopFret >= 0)
+         idx = m_iTopFret;
+      else
+         idx = m_iStrumCol;
+      NoteData::iterator iter = m_NoteData.FindTapNote( idx, row );
       //DEBUG_ASSERT( iter!= m_NoteData.end(col) );
       TapNote *iterNote = NULL;
-      if(iter!= m_NoteData.end(col))
+      if(iter!= m_NoteData.end(idx))
          iterNote = &iter->second;
       
       // if no notes are there, just exit
-      if(iter!= m_NoteData.end(col))
+      if(iter == m_NoteData.end(idx))
       {
          DoTapScoreNone(!bRelease);
          m_bHOPOPossible = false;
@@ -2110,7 +2139,10 @@ void Player::DoFretLogic( int col, int row, const RageTimer &tm, bool bRelease, 
             }
          } // else (iNotesInRow <= 1)
       } // if(gem or hopo)
-   } // if(strum was pressed
+   }
+   
+   m_bGradeHopoNow = false;
+   m_bGradeStrumNow = false;
 }
 
 // Grades a given note based on the score window
@@ -2176,6 +2208,12 @@ void Player::Step( int col, int row, const RageTimer &tm, bool bHeld, bool bRele
 
 	const int iSongRow = row == -1 ? BeatToNoteRow( fSongBeat ) : row;
 
+   // update frets for Guitar mode
+   if(m_iStrumCol != -1)
+   {
+      DoFretLogic(col, bRelease);
+   }
+   
 	if( col != -1 && !bRelease )
 	{
 		// Update roll life
@@ -2314,6 +2352,30 @@ void Player::Step( int col, int row, const RageTimer &tm, bool bHeld, bool bRele
 
 	// calculate TapNoteScore
 	TapNoteScore score = TNS_None;
+   
+   // in guitar mode, check all columns for overlapping note
+   int actualCol = col;
+   if( m_iStrumCol != -1 && iRowOfOverlappingNoteOrRow == -1 && (m_bGradeHopoNow || m_bGradeStrumNow))
+   {
+      int tempRow = -1;
+      bool foundARow = false;
+      iRowOfOverlappingNoteOrRow = iSongRow + iStepSearchRows;
+      for(int j=0; j<m_iStrumCol; j++)
+      {
+         tempRow = GetClosestNote( j, iSongRow, iStepSearchRows, iStepSearchRows, false );
+         // find the earliest row
+         if( tempRow < iRowOfOverlappingNoteOrRow && tempRow != -1)
+         {
+            foundARow = true;
+            iRowOfOverlappingNoteOrRow = tempRow;
+            actualCol = j;
+         }
+      }
+      if( !foundARow )
+      {
+         iRowOfOverlappingNoteOrRow = -1;
+      }
+   }
 
 	if( iRowOfOverlappingNoteOrRow != -1 )
 	{
@@ -2347,13 +2409,13 @@ void Player::Step( int col, int row, const RageTimer &tm, bool bHeld, bool bRele
 		const float fSecondsFromExact = fabsf( fNoteOffset );
 
 		TapNote tnDummy = TAP_ORIGINAL_TAP;
-      NoteData::iterator iter = m_NoteData.FindTapNote( col, iRowOfOverlappingNoteOrRow );
-      DEBUG_ASSERT( iter!= m_NoteData.end(col) );
+      NoteData::iterator iter = m_NoteData.FindTapNote( actualCol, iRowOfOverlappingNoteOrRow );
+      DEBUG_ASSERT( iter!= m_NoteData.end(actualCol) );
       auto &iterNote = iter->second;
       
       // Do all logic for frets and guitar notes in a seperate function
-      if( m_iStrumCol != -1 ) {
-         DoFretLogic( col, row, tm, bRelease, fNoteOffset );
+      if( m_iStrumCol != -1 && (m_bGradeHopoNow || m_bGradeStrumNow) ) {
+         DoGuitarGrading( iRowOfOverlappingNoteOrRow, bRelease, fNoteOffset );
       }
 
 		switch( m_pPlayerState->m_PlayerController )
