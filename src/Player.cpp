@@ -1938,8 +1938,10 @@ void Player::PlayKeysound( const TapNote &tn, TapNoteScore score )
  * Returns true if all notes in the row are successfully hit with no extra presses, for guitar mode,
  * but other custom modes could use it too, with some modification
  */
-bool Player::IsChordHit( int row )
+bool Player::IsChordHit( int row, int numNotes )
 {
+   // # of notes in this row needs to match # of frets held
+   int countNumNotes = 0;
    for( int col = 0; col<m_iStrumCol; col++) {
       TapNote *pTN = NULL;
       NoteData::iterator iter = m_NoteData.FindTapNote( col, row );
@@ -1950,17 +1952,18 @@ bool Player::IsChordHit( int row )
          if( pTN->type == TapNoteType_Empty || pTN->type == TapNoteType_Attack ||
             pTN->type == TapNoteType_AutoKeysound || pTN->type == TapNoteType_Fake ||
             pTN->type == TapNoteType_Empty) return false;
-      } else {
-         if( iter != m_NoteData.end(col) || pTN->type != TapNoteType_Empty )
-            return false; // no note should be in column where no fret is held
+         countNumNotes++;
+      //} else {
+      //   if( iter != m_NoteData.end(col) || pTN->type != TapNoteType_Empty )
+      //      return false; // no note should be in column where no fret is held
       }
    }
-   return true;
+   
+   return countNumNotes == numNotes;
 }
 
 /**
  * Handles fret logic for guitar mode
- * TODO: rebuild, try again, then start adding prints
  */
 void Player::DoFretLogic( int col, bool bRelease )
 {
@@ -1978,30 +1981,25 @@ void Player::DoFretLogic( int col, bool bRelease )
          {
             if(m_vbFretIsDown[i])
             {
+               //LOG->Trace( "Top Fret pulled-off to: %i", i );
                m_iTopFret = i;
                break;
             }
          }
-         if(m_iTopFret == col) m_iTopFret = -1;
+         if(m_iTopFret == col) {
+            //LOG->Trace( "Top Fret now open strum" );
+            m_iTopFret = -1;
+         }
       }
       
-      /*
-      if(m_iTopFret == -1)
-         LOG->Trace( "topfret changed! now open strum" );
-      else if(m_iTopFret == 0)
-         LOG->Trace( "topfret changed! now col 0" );
-      else if(m_iTopFret == 1)
-         LOG->Trace( "topfret changed! now col 1" );
-      */
-      
-      // TODO: set flag to grade hopo
+      // Set flag to grade hopo
       m_bGradeHopoNow = true;
    }
    
    // if strum was hit
    if(col == m_iStrumCol && !bRelease)
    {
-      // TODO: set flag to grade strum later
+      // Set flag to grade strum later
       m_bGradeStrumNow = true;
    }
 }
@@ -2036,7 +2034,7 @@ void Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset)
             // hopo chords are a thing. weird and rare, but a thing.
             if(iNotesInRow > 1)
             {
-               if(IsChordHit(row))
+               if(IsChordHit(row, iNotesInRow))
                {
                   // Chord hit! grade every note now
                   for(int i=0; i<m_iStrumCol; i++)
@@ -2102,7 +2100,7 @@ void Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset)
          if(iNotesInRow > 1)
          {
             // if the chord was successfully hit...
-            if(IsChordHit(row) && fSecondsFromExact <= GetWindowSeconds(TW_W5))
+            if(IsChordHit(row, iNotesInRow) && fSecondsFromExact <= GetWindowSeconds(TW_W5))
             {
                // Chord hit! grade every note now
                for(int i=0; i<m_iStrumCol; i++)
@@ -2355,25 +2353,45 @@ void Player::Step( int col, int row, const RageTimer &tm, bool bHeld, bool bRele
    
    // in guitar mode, check all columns for overlapping note
    int actualCol = col;
-   if( m_iStrumCol != -1 && iRowOfOverlappingNoteOrRow == -1 && (m_bGradeHopoNow || m_bGradeStrumNow))
+   if( m_iStrumCol != -1 && (m_bGradeHopoNow || m_bGradeStrumNow))
    {
       int tempRow = -1;
+      int oldRow = iRowOfOverlappingNoteOrRow;
       bool foundARow = false;
-      iRowOfOverlappingNoteOrRow = iSongRow + iStepSearchRows;
-      for(int j=0; j<m_iStrumCol; j++)
+      
+      // prioritize the top fret
+      if(m_iTopFret != -1)
       {
-         tempRow = GetClosestNote( j, iSongRow, iStepSearchRows, iStepSearchRows, false );
-         // find the earliest row
-         if( tempRow < iRowOfOverlappingNoteOrRow && tempRow != -1)
+         tempRow = GetClosestNote( m_iTopFret, iSongRow, iStepSearchRows, iStepSearchRows, false );
+         if(tempRow != -1)
          {
             foundARow = true;
             iRowOfOverlappingNoteOrRow = tempRow;
-            actualCol = j;
+            actualCol = m_iTopFret;
          }
       }
+      
+      // if that fails, try all rows
       if( !foundARow )
       {
-         iRowOfOverlappingNoteOrRow = -1;
+         iRowOfOverlappingNoteOrRow = iSongRow + iStepSearchRows;
+         for(int j=0; j<m_iStrumCol; j++)
+         {
+            tempRow = GetClosestNote( j, iSongRow, iStepSearchRows, iStepSearchRows, false );
+            // find the earliest row
+            if( tempRow < iRowOfOverlappingNoteOrRow && tempRow != -1)
+            {
+               foundARow = true;
+               iRowOfOverlappingNoteOrRow = tempRow;
+               actualCol = j;
+            }
+         }
+      }
+      
+      // eh, we tried. Go back to before
+      if( !foundARow )
+      {
+         iRowOfOverlappingNoteOrRow = oldRow;
       }
    }
 
@@ -2423,7 +2441,7 @@ void Player::Step( int col, int row, const RageTimer &tm, bool bHeld, bool bRele
 		case PC_HUMAN:
 			switch( iterNote.type )
 			{
-         // Skip grading guitar notes, was handled in DoFretLogic
+         // Skip grading guitar notes, was handled in DoGuitarGrading
          case TapNoteType_HOPO:
          case TapNoteType_HOPOHold:
          case TapNoteType_Gem:
@@ -2735,7 +2753,7 @@ void Player::UpdateTapNotesMissedOlderThan( float fMissIfOlderThanSeconds )
 				m_note_field->did_tap_note(iter.Track(), tn.result.tns, false);
 			}
          // HOPOs should not be possible after a miss
-         if( m_bHOPOPossible ) m_bHOPOPossible = false;
+         m_bHOPOPossible = false;
 		}
 	}
 }

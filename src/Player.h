@@ -153,7 +153,7 @@ protected:
    void DoFretLogic( int col, bool bRelease );
    void DoGuitarGrading(int row, bool bRelease, float fNoteOffset);
    void GradeNote(TapNoteScore tapScore, TapNote &iterNote, int col, float fNoteOffset, int iRowOfOverlappingNoteOrRow);
-   bool IsChordHit( int row );
+   bool IsChordHit( int row, int numNotes );
    
 	std::string ApplyRandomAttack();
 
