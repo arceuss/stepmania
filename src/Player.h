@@ -150,8 +150,8 @@ protected:
 	int GetClosestNonEmptyRowDirectional( int iStartRow, int iMaxRowsAhead, bool bAllowGraded, bool bForward ) const;
 	int GetClosestNonEmptyRow( int iNoteRow, int iMaxRowsAhead, int iMaxRowsBehind, bool bAllowGraded ) const;
 
-   void DoFretLogic( int col, bool bRelease );
-   void DoGuitarGrading(int row, bool bRelease, float fNoteOffset);
+   int DoFretLogic( int col, bool bRelease );
+   void DoGuitarGrading(int row, bool bRelease, float fNoteOffset, int gradeCode);
    void GradeNote(TapNoteScore tapScore, TapNote &iterNote, int col, float fNoteOffset, int iRowOfOverlappingNoteOrRow);
    bool IsChordHit( int row, int numNotes );
    
@@ -217,10 +217,6 @@ protected:
    int m_iStrumCol;
    // Are HOPOs possible now?
    bool m_bHOPOPossible;
-   // flag to grade hopos
-   bool m_bGradeHopoNow;
-   // flag to grade strum
-   bool m_bGradeStrumNow;
 
 	std::vector<RageSound>	m_vKeysounds;
 
