@@ -151,7 +151,7 @@ protected:
 	int GetClosestNonEmptyRow( int iNoteRow, int iMaxRowsAhead, int iMaxRowsBehind, bool bAllowGraded ) const;
 
    int DoFretLogic( int col, bool bRelease );
-   void DoGuitarGrading(int row, bool bRelease, float fNoteOffset, int gradeCode);
+   TapNoteScore DoGuitarGrading(int row, bool bRelease, float fNoteOffset, int gradeCode);
    void GradeNote(TapNoteScore tapScore, TapNote &iterNote, int col, float fNoteOffset, int iRowOfOverlappingNoteOrRow);
    bool IsChordHit( int row, int numNotes );
    

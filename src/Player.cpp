@@ -2005,9 +2005,10 @@ int Player::DoFretLogic( int col, bool bRelease )
 }
 
 // Grades guitar notes, had to be seperated since fret logic always happens, but
-void Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, int gradeCode)
+TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, int gradeCode)
 {
    const float fSecondsFromExact = fabsf( fNoteOffset );
+   TapNoteScore retScore = TNS_None;
    
    if((gradeCode & 1) != 0)
    {
@@ -2047,6 +2048,7 @@ void Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, int grad
                         GradeNote(TNS_W1, itN, i, fNoteOffset, row);
                      }
                   }
+                  retScore = TNS_W1;
                   m_bHOPOPossible = true;
                }
                else
@@ -2057,6 +2059,7 @@ void Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, int grad
             }
             else
             {
+               retScore = TNS_W1;
                GradeNote(TNS_W1, *iterNote, m_iTopFret, fNoteOffset, row);
                m_bHOPOPossible = true;
             }
@@ -2087,7 +2090,7 @@ void Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, int grad
       {
          DoTapScoreNone(!bRelease);
          m_bHOPOPossible = false;
-         return;
+         return retScore;
       }
       // if the highest column has a gem or hopo
       if(iterNote->type == TapNoteType_Gem || iterNote->type == TapNoteType_GemHold ||
@@ -2112,6 +2115,7 @@ void Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, int grad
                      GradeNote(TNS_W1, itN, i, fNoteOffset, row);
                   }
                }
+               retScore = TNS_W1;
                m_bHOPOPossible = true;
             }
             else
@@ -2125,6 +2129,7 @@ void Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, int grad
          {
             if(fSecondsFromExact <= GetWindowSeconds(TW_W5))
             {
+               retScore = TNS_W1;
                GradeNote(TNS_W1, *iterNote, m_iTopFret, fNoteOffset, row);
                m_bHOPOPossible = true;
             }
@@ -2136,6 +2141,8 @@ void Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, int grad
          } // else (iNotesInRow <= 1)
       } // if(gem or hopo)
    }
+   
+   return retScore;
 }
 
 // Grades a given note based on the score window
@@ -2429,7 +2436,7 @@ void Player::Step( int col, int row, const RageTimer &tm, bool bHeld, bool bRele
       
       // Do all logic for frets and guitar notes in a seperate function
       if( m_iStrumCol != -1 && guitarGradeCode != 0 ) {
-         DoGuitarGrading( iRowOfOverlappingNoteOrRow, bRelease, fNoteOffset, guitarGradeCode );
+         score = DoGuitarGrading( iRowOfOverlappingNoteOrRow, bRelease, fNoteOffset, guitarGradeCode );
       }
 
 		switch( m_pPlayerState->m_PlayerController )
