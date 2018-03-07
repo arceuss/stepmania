@@ -2148,7 +2148,6 @@ TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, 
 // Grades a given note based on the score window
 void Player::GradeNote(TapNoteScore tapScore, TapNote &iterNote, int col, float fNoteOffset, int iRowOfOverlappingNoteOrRow)
 {
-   
    // Do game-specific and mode-specific score mapping.
    TapNoteScore score = GAMESTATE->GetCurrentGame()->MapTapNoteScore( tapScore );
    if( score == TNS_W1 && !GAMESTATE->ShowW1() )
@@ -2173,7 +2172,7 @@ void Player::GradeNote(TapNoteScore tapScore, TapNote &iterNote, int col, float 
          const bool bBright = ( m_pPlayerStageStats && m_pPlayerStageStats->m_iCurCombo > (unsigned int)BRIGHT_GHOST_COMBO_THRESHOLD ) || bBlind;
          if(m_note_field)
          {
-            m_note_field->did_tap_note(col, bBlind? TNS_W1:score, bBright);
+            m_note_field->did_tap_note(col, bBlind? TNS_W1:score, bBright, iterNote.result.fTapNoteOffset);
          }
          if( score >= m_pPlayerState->m_PlayerOptions.GetCurrent().m_MinTNSToHideNotes || bBlind )
             HideNote( col, iRowOfOverlappingNoteOrRow );
@@ -2735,7 +2734,7 @@ void Player::UpdateTapNotesMissedOlderThan( float fMissIfOlderThanSeconds )
 			tn.result.tns = TNS_AvoidMine;
 			if(m_note_field != nullptr)
 			{
-				m_note_field->did_tap_note(iter.Track(), tn.result.tns, false);
+				m_note_field->did_tap_note(iter.Track(), tn.result.tns, false, 0.f);
 			}
 			/* The only real way to tell if a mine has been scored is if it has disappeared
 			 * but this only works for hit mines so update the scores for avoided mines here. */
@@ -2753,7 +2752,7 @@ void Player::UpdateTapNotesMissedOlderThan( float fMissIfOlderThanSeconds )
 			// message.  Delaying until I have time to rearchitect Player. -Kyz
 			if(m_note_field != nullptr)
 			{
-				m_note_field->did_tap_note(iter.Track(), tn.result.tns, false);
+				m_note_field->did_tap_note(iter.Track(), tn.result.tns, false, 0.f);
 			}
          // HOPOs should not be possible after a miss
          m_bHOPOPossible = false;
@@ -2863,7 +2862,7 @@ void Player::UpdateJudgedRows()
 			}
 			if(m_note_field != nullptr)
 			{
-				m_note_field->did_tap_note(iter.Track(), tn.result.tns, false);
+				m_note_field->did_tap_note(iter.Track(), tn.result.tns, false, tn.result.fTapNoteOffset);
 			}
 
 			if( tn.iKeysoundIndex >= 0 && tn.iKeysoundIndex < (int) m_vKeysounds.size() )
@@ -2934,7 +2933,7 @@ void Player::FlashGhostRow( int iRow )
 		}
 		if(m_note_field != nullptr)
 		{
-			m_note_field->did_tap_note(iTrack, lastTNS, bBright);
+			m_note_field->did_tap_note(iTrack, lastTNS, bBright, tn.result.fTapNoteOffset);
 		}
 		if( lastTNS >= m_pPlayerState->m_PlayerOptions.GetCurrent().m_MinTNSToHideNotes || bBlind )
 		{
