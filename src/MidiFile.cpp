@@ -77,7 +77,18 @@ MidiFile::MidiFile(void) {}
 
 /* Destructor for MidiFile class */
 MidiFile::~MidiFile(void) {
-   
+   // iterate through all events on all tracks to delete them
+   for(int i=0; i<numTracks; i++)
+   {
+      MidiEvent* curEvt = tracks[i];
+      MidiEvent* nextEvt = curEvt->pNext;
+      while(nextEvt != NULL)
+      {
+         nextEvt = curEvt->pNext;
+         delete curEvt;
+         curEvt = nextEvt;
+      }
+   }
 }
 
 /* Loads a mid file in to a MidiFile object

@@ -3183,8 +3183,8 @@ static const Style g_Style_Guitar_Solo =
       },
    },
    {	// m_iInputColumn[NUM_GameController][NUM_GameButton]
-      { 0, 1, 2, 3, 4, Style::NO_MAPPING, 5, Style::END_MAPPING },
-      { 0, 1, 2, 3, 4, Style::NO_MAPPING, 5, Style::END_MAPPING },
+      { 0, 1, 2, 3, 4, Style::NO_MAPPING, 5, 5, Style::END_MAPPING },
+      { 0, 1, 2, 3, 4, Style::NO_MAPPING, 5, 5, Style::END_MAPPING },
    },
    {	// m_iColumnDrawOrder[MAX_COLS_PER_PLAYER];
       5,4,0,3,1,2
@@ -3222,8 +3222,8 @@ static const Style g_Style_Guitar_Versus =
       },
    },
    {	// m_iInputColumn[NUM_GameController][NUM_GameButton]
-      { 0, 1, 2, 3, 4, Style::NO_MAPPING, 5, Style::END_MAPPING },
-      { 0, 1, 2, 3, 4, Style::NO_MAPPING, 5, Style::END_MAPPING },
+      { 0, 1, 2, 3, 4, Style::NO_MAPPING, 5, 5, Style::END_MAPPING },
+      { 0, 1, 2, 3, 4, Style::NO_MAPPING, 5, 5, Style::END_MAPPING },
    },
    {	// m_iColumnDrawOrder[MAX_COLS_PER_PLAYER];
       5,4,0,3,1,2
@@ -3262,8 +3262,8 @@ static const Style g_Style_Guitar_Group =
       },
    },
    {	// m_iInputColumn[NUM_GameController][NUM_GameButton]
-      { 0, 1, 2, 3, 4, Style::NO_MAPPING, 5, Style::END_MAPPING },
-      { 0, 1, 2, 3, 4, Style::NO_MAPPING, 5, Style::END_MAPPING },
+      { 0, 1, 2, 3, 4, Style::NO_MAPPING, 5, 5, Style::END_MAPPING },
+      { 0, 1, 2, 3, 4, Style::NO_MAPPING, 5, 5, Style::END_MAPPING },
    },
    {	// m_iColumnDrawOrder[MAX_COLS_PER_PLAYER];
       5,4,0,3,1,2
@@ -3306,8 +3306,8 @@ static const Style g_Style_Guitar_Solo6 =
       },
    },
    {	// m_iInputColumn[NUM_GameController][NUM_GameButton]
-      { 0, 1, 2, 3, 4, 5, 6, Style::END_MAPPING },
-      { 0, 1, 2, 3, 4, 5, 6, Style::END_MAPPING },
+      { 0, 1, 2, 3, 4, 5, 6, 6, Style::END_MAPPING },
+      { 0, 1, 2, 3, 4, 5, 6, 6, Style::END_MAPPING },
    },
    {	// m_iColumnDrawOrder[MAX_COLS_PER_PLAYER];
       6,5,3,4,2,0,1
@@ -3347,8 +3347,8 @@ static const Style g_Style_Guitar_Group6 =
       },
    },
    {	// m_iInputColumn[NUM_GameController][NUM_GameButton]
-      { 0, 1, 2, 3, 4, 5, 6, Style::END_MAPPING },
-      { 0, 1, 2, 3, 4, 5, 6, Style::END_MAPPING },
+      { 0, 1, 2, 3, 4, 5, 6, 6, Style::END_MAPPING },
+      { 0, 1, 2, 3, 4, 5, 6, 6, Style::END_MAPPING },
    },
    {	// m_iColumnDrawOrder[MAX_COLS_PER_PLAYER];
       6,5,3,4,2,0,1
@@ -3384,10 +3384,12 @@ static const Game g_Game_Guitar =
          { "Fret5",		GameButton_Invalid },
          { "Fret6",		GameButton_Invalid },
          { "StrumDown",  GAME_BUTTON_DOWN },
+         { "StrumUp",   GAME_BUTTON_UP },
       },
       &g_AutoKeyMappings_Guitar
    },
    {
+      { GameButtonType_Step },
       { GameButtonType_Step },
       { GameButtonType_Step },
       { GameButtonType_Step },

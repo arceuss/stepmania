@@ -679,6 +679,20 @@ void getMusicFiles( const std::string path, Song &out )
    // I really hope this works, don't want to make this more complicated
 }
 
+std::string getTimeString(float fSeconds)
+{
+   int min = ((int)fSeconds) / 60;
+   int sec = ((int)fSeconds) % 60;
+   int csc = (int)((fSeconds - (sec + (60 * min))) * 100); // centiseconds
+   std::string minStr = std::to_string(min);
+   std::string secStr = std::to_string(sec);
+   std::string cscStr = std::to_string(csc);
+   if(minStr.size() == 1) minStr = '0' + minStr;
+   if(secStr.size() == 1) secStr = '0' + secStr;
+   if(cscStr.size() == 1) cscStr = '0' + cscStr;
+   return "[" + minStr + ":" + secStr + "." + cscStr + "]";
+}
+
 // Creates a lyrics file given the vocal track from the midifile and returns its location
 std::string createLyricsFile( const std::string path, TimingData td, int resolution, MidiFile::MidiEvent *track)
 {
@@ -703,34 +717,31 @@ std::string createLyricsFile( const std::string path, TimingData td, int resolut
       // only care about lyrics
       if(curEvt->type == MidiFile::MidiEventType_Meta)
       {
-         if(curEvt->subType == MidiFile::MidiMeta_Lyric)
+         if(curEvt->subType == MidiFile::MidiMeta_Lyric || curEvt->subType == MidiFile::MidiMeta_Text)
          {
             MidiFile::MidiEvent_Text* txtEvent = (MidiFile::MidiEvent_Text*) curEvt;
             std::string txt = std::string(txtEvent->buffer);
             
-            // '+' is used to carry a lyric through pitch changes
-            if(txt.at(0) != '+')
+            // '+' is used to carry a lyric through pitch changes, '[' is for action markers
+            if(txt.at(0) != '+' && txt.at(0) != '[')
             {
                // strip special characters
                if(txt.back() == '#') txt = txt.substr(0, txt.size() - 1); // for spoken words
                if(txt.back() == '^') txt = txt.substr(0, txt.size() - 1); // ???
                
-               // if this is a new measure, append the last line and start another
-               if(lastMeasure < (int)(txtEvent->tick / resolution) / 4)
+               // if this is a new measure, append the last line and start another, but don't chop words
+               int newMeasure = (int)(txtEvent->tick / resolution) / 4;
+               if(lastMeasure < newMeasure && curLine.back() != '-')
                {
                   f.PutLine(curLine);
-                  float fSeconds = td.GetElapsedTimeFromBeat( (float)txtEvent->tick / resolution );
-                  int min = ((int)fSeconds) / 60;
-                  int sec = ((int)fSeconds) % 60;
-                  int csc = (int)((fSeconds - (sec + (60 * min))) * 100); // centiseconds
-                  std::string minStr = std::to_string(min);
-                  std::string secStr = std::to_string(sec);
-                  std::string cscStr = std::to_string(csc);
-                  if(minStr.size() == 1) minStr = '0' + minStr;
-                  if(secStr.size() == 1) secStr = '0' + secStr;
-                  if(cscStr.size() == 1) cscStr = '0' + cscStr;
-                  curLine = "[" + minStr + ":" + secStr + "." + cscStr + "]";
-                  lastMeasure = (int)(txtEvent->tick / resolution) / 4;
+                  if(newMeasure - lastMeasure > 2)
+                  {
+                     // add a blank line when 2 or more measures have no lyrics
+                     std::string blankLine = getTimeString(td.GetElapsedTimeFromBeat((float)((lastMeasure+1) * 4)));
+                     f.PutLine(blankLine);
+                  }
+                  curLine = getTimeString(td.GetElapsedTimeFromBeat( (float)txtEvent->tick / resolution ));
+                  lastMeasure = newMeasure;
                }
                
                // '-' is used to connect syllables inside words
