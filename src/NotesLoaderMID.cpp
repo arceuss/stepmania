@@ -142,6 +142,8 @@ MidiOrganizer organizeMidi(MidiFile* mf)
                mo.eventTrack = tempTrk;
             }  else if(compareToString(tempTxt->buffer, "VENUE")) {
                mo.venueTrack = tempTrk;
+            }  else if(compareToString(tempTxt->buffer, "BEAT")) {
+               mo.beatTrack = tempTrk;
             } else {
                // dunno what this is, save the last of the unknowns at least
                mo.otherTrack = tempTrk;
@@ -664,13 +666,13 @@ void getMusicFiles( const std::string path, Song &out )
    } else {
       for(int i=songFiles.size() - 1; i >= 0; i--)
       {
-         if(songFiles[i].compare("guitar.ogg"))
+         if(!songFiles[i].compare("guitar.ogg"))
          {
             out.m_sInstrumentTrackFile[InstrumentTrack_Guitar] = path + songFiles[i];
-         } else if(songFiles[i].compare("song.ogg"))
+         } else if(!songFiles[i].compare("song.ogg"))
          {
             out.m_sInstrumentTrackFile[InstrumentTrack_Rhythm] = path + songFiles[i];
-         } else if(songFiles[i].compare("rhythm.ogg"))
+         } else if(!songFiles[i].compare("rhythm.ogg"))
          {
             out.m_sInstrumentTrackFile[InstrumentTrack_Bass] = path + songFiles[i];
          }
@@ -772,7 +774,6 @@ void MIDILoader::GetApplicableFiles( const std::string &sPath, std::vector<std::
    GetDirListing( sPath + std::string("*.mid"), out );
 }
 
-// TODO: set important data for steps/song in here
 bool MIDILoader::LoadFromDir( const std::string &sDir, Song &out ) {
    LOG->Trace( "MIDILoader::LoadFromDir(%s)", sDir.c_str() );
    
@@ -800,6 +801,7 @@ bool MIDILoader::LoadFromDir( const std::string &sDir, Song &out ) {
    out.m_sMainTitle = title;
    out.m_sArtist = artist;
    out.m_sCredit = charter;
+   out.m_sSongFileName = dir+arrayMidiFileNames[0];
    getMusicFiles(sDir, out);
    parseBeatTrack(out.m_SongTiming, mo.beatTrack, resolution);
    if(mo.eventTrack != NULL) parseEventTrack(out.m_SongTiming, mo.eventTrack, resolution);
@@ -812,7 +814,10 @@ bool MIDILoader::LoadFromDir( const std::string &sDir, Song &out ) {
    {
       lrcFile = createLyricsFile(sDir, out.m_SongTiming, resolution, mo.vocalTrack);
    } else {
-      lrcFile = sDir + lyricFiles[0];
+      if( lyricFiles.size() != 0 )
+      {
+         lrcFile = sDir + lyricFiles[0];
+      }
    }
    if(!lrcFile.empty()) out.m_sLyricsFile = lrcFile;
    
@@ -828,7 +833,7 @@ bool MIDILoader::LoadFromDir( const std::string &sDir, Song &out ) {
       newSteps->SetDescription( charter );
       // out.SetMusicFile( headerInfo[2] ); // TODO: music stuff needed?
       newSteps->SetMeter(1); // will have to try this later, has a history of crashing when not hardcoded
-      newSteps->SetSavedToDisk(true);
+      //newSteps->SetSavedToDisk(true);
        
       newSteps->SetFilename(dir+arrayMidiFileNames[0]);
       switch(i) {
@@ -865,7 +870,6 @@ bool MIDILoader::LoadFromDir( const std::string &sDir, Song &out ) {
    return true;
 }
 
-// TODO: set important data in here
 bool MIDILoader::LoadNoteDataFromSimfile( const std::string & cachePath, Steps &out ) {
    // Parse the midi file
    MidiFile *mf = ReadMidiFile(cachePath);
