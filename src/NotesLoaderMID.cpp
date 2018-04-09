@@ -442,12 +442,16 @@ NoteData getGHRBNotesFromTrack(MidiFile::MidiEvent* track, Difficulty diff, HOPO
          // Is this note in the range we care about?
          if(idx >= 0 && tempNote->note <= high)
          {
-            if(tempNote->subType == MidiFile::MidiNote_NoteOn)
+            // because guitar hero is special, note on events with velocity 0 = note off
+            if(tempNote->subType == MidiFile::MidiNote_NoteOn &&
+               tempNote->velocity > 0)
             {
                if(notesInProgress[idx] == NULL)
                   notesInProgress[idx] = tempNote;
             }
-            else if(tempNote->subType == MidiFile::MidiNote_NoteOff)
+            else if(tempNote->subType == MidiFile::MidiNote_NoteOff ||
+                    (tempNote->subType == MidiFile::MidiNote_NoteOn &&
+                     tempNote->velocity == 0))
             {
                // close off any note in progress and place either a hold or tap note
                if(notesInProgress[idx])
@@ -458,7 +462,7 @@ NoteData getGHRBNotesFromTrack(MidiFile::MidiEvent* track, Difficulty diff, HOPO
                   // quick sanity check...
                   if(end > start)
                   {
-                     // add the note, this is actually a weirdly complex process to do...
+                     // add the note
                      addGHRBNote(newNotes, idx, start, end, gd);
                      notesInProgress[idx] = NULL;
                   }
