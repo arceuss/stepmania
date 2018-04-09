@@ -122,18 +122,29 @@ MidiOrganizer organizeMidi(MidiFile* mf)
          {
             // found one of the important tracks, figure out which it is
             MidiFile::MidiEvent_Text* tempTxt = (MidiFile::MidiEvent_Text*) tempTrk;
-            if(compareToString(tempTxt->buffer, "PART GUITAR")) {
+            if(compareToString(tempTxt->buffer, "PART GUITAR") ||
+               compareToString(tempTxt->buffer, "PART_GUITAR") ||
+               compareToString(tempTxt->buffer, "T1 GEMS")) {
                mo.guitarTrack = tempTrk;
-            } else if(compareToString(tempTxt->buffer, "PART BASS")) {
+            } else if(compareToString(tempTxt->buffer, "PART BASS") ||
+                      compareToString(tempTxt->buffer, "PART_BASS") ||
+                      compareToString(tempTxt->buffer, "PART RHYTHM") ||
+                      compareToString(tempTxt->buffer, "PART_RHYTHM")) {
                mo.bassTrack = tempTrk;
             }
             // Drums and vocals means this is a RB song
             // AFAIK anything past GH3 never had midis ripped because people thought
             // the new features would screw with existing midi parsers
-            else if(compareToString(tempTxt->buffer, "PART DRUMS")) {
+            else if(compareToString(tempTxt->buffer, "PART DRUMS") ||
+                    compareToString(tempTxt->buffer, "PART_DRUMS") ||
+                    compareToString(tempTxt->buffer, "BAND DRUMS") ||
+                    compareToString(tempTxt->buffer, "BAND_DRUMS")) {
                mo.drumTrack = tempTrk;
                if(mo.HOPOType == Unknown_Rules) mo.HOPOType = RB_HOPO_Rules;
-            } else if(compareToString(tempTxt->buffer, "PART VOCALS")) {
+            } else if(compareToString(tempTxt->buffer, "PART VOCALS") ||
+                      compareToString(tempTxt->buffer, "PART_VOCALS") ||
+                      compareToString(tempTxt->buffer, "BAND SINGER") ||
+                      compareToString(tempTxt->buffer, "BAND_SINGER")) {
                mo.vocalTrack = tempTrk;
                if(mo.HOPOType == Unknown_Rules) mo.HOPOType = RB_HOPO_Rules;
             }
@@ -499,7 +510,7 @@ NoteData getGenericNotesFromTrack(MidiFile::MidiEvent* track, int resolution, in
       if(curEvt->type == MidiFile::MidiEventType_Note)
       {
          MidiFile::MidiEvent_Note* tempNote = (MidiFile::MidiEvent_Note*) curEvt;
-         int idx = tempNote->channel % cols;
+         int idx = tempNote->note % cols;
          if(tempNote->subType == MidiFile::MidiNote_NoteOn)
          {
             // save this to be processed later, 2 noteOn events in a row will take the first
@@ -676,7 +687,8 @@ void getMusicFiles( const std::string path, Song &out )
          } else if(!songFiles[i].compare("song.ogg"))
          {
             out.m_sInstrumentTrackFile[InstrumentTrack_Rhythm] = path + songFiles[i];
-         } else if(!songFiles[i].compare("rhythm.ogg"))
+         } else if(!songFiles[i].compare("rhythm.ogg") ||
+                   !songFiles[i].compare("bass.ogg"))
          {
             out.m_sInstrumentTrackFile[InstrumentTrack_Bass] = path + songFiles[i];
          }
@@ -707,6 +719,7 @@ std::string createLyricsFile( const std::string path, TimingData td, int resolut
    MidiFile::MidiEvent *curEvt = track;
    int lastMeasure = 0;
    std::string curLine = "";
+   bool phraseOpen = false;
    
    if( !f.Open(lrcFileName, RageFile::WRITE) )
    {
@@ -717,7 +730,7 @@ std::string createLyricsFile( const std::string path, TimingData td, int resolut
    // format for .lrc files:
    // [mm:ss.xx]Lyrics here
    // [mm:ss.xx]More lyrics
-   // divide by measure, time the lyrics to the first lyric of the measure
+   // use the divisions used in RB on notes 105 and 106
    while(curEvt)
    {
       // only care about lyrics
@@ -735,21 +748,6 @@ std::string createLyricsFile( const std::string path, TimingData td, int resolut
                if(txt.back() == '#') txt = txt.substr(0, txt.size() - 1); // for spoken words
                if(txt.back() == '^') txt = txt.substr(0, txt.size() - 1); // ???
                
-               // if this is a new measure, append the last line and start another, but don't chop words
-               int newMeasure = (int)(txtEvent->tick / resolution) / 4;
-               if(lastMeasure < newMeasure && curLine.back() != '-')
-               {
-                  f.PutLine(curLine);
-                  if(newMeasure - lastMeasure > 2)
-                  {
-                     // add a blank line when 2 or more measures have no lyrics
-                     std::string blankLine = getTimeString(td.GetElapsedTimeFromBeat((float)((lastMeasure+1) * 4)));
-                     f.PutLine(blankLine);
-                  }
-                  curLine = getTimeString(td.GetElapsedTimeFromBeat( (float)txtEvent->tick / resolution ));
-                  lastMeasure = newMeasure;
-               }
-               
                // '-' is used to connect syllables inside words
                if(curLine.back() == '-') {
                   curLine = curLine.substr(0, curLine.size() - 1);
@@ -762,6 +760,32 @@ std::string createLyricsFile( const std::string path, TimingData td, int resolut
             }
          }
       }
+      else if (curEvt->type == MidiFile::MidiEventType_Note)
+      {
+         MidiFile::MidiEvent_Note* tempNote = (MidiFile::MidiEvent_Note*) curEvt;
+         if (tempNote->note == 105 || tempNote->note == 106)
+         {
+            // beginning of a new phrase, format the line
+            if (tempNote->subType == MidiFile::MidiNote_NoteOn && !phraseOpen)
+            {
+               // if more than a beat elapsed from last lyrics, insert a blank line
+               if (tempNote->tick - lastMeasure > resolution)
+               {
+                  std::string blankLine = getTimeString(td.GetElapsedTimeFromBeat( (float)lastMeasure / resolution ));
+                  f.PutLine(blankLine);
+               }
+               curLine = getTimeString(td.GetElapsedTimeFromBeat( (float)tempNote->tick / resolution ));
+               phraseOpen = true;
+            }
+            // end of a phrase, append to file
+            else if (tempNote->subType == MidiFile::MidiNote_NoteOff && phraseOpen)
+            {
+               f.PutLine(curLine);
+               lastMeasure = tempNote->tick;
+               phraseOpen = false;
+            }
+         }
+      }
       
       curEvt = curEvt->pNext;
    }
@@ -770,6 +794,7 @@ std::string createLyricsFile( const std::string path, TimingData td, int resolut
    if( f.Flush() == -1 )
       return "";
    
+   f.Close();
    return lrcFileName;
 }
 

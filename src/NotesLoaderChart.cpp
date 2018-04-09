@@ -384,11 +384,17 @@ std::vector<std::string> parseHeader(std::istringstream &iss, Song &outSong, int
          else outSong.m_fMusicSampleLengthSeconds = estSampleSec;
       } else if( !vsWords[0].compare("MusicStream") )
       {
-         // TODO: also parse GuitarStream and RhythmStream to have multiple audio tracks...
-         // somehow... if Stepmania even allows it?
          std::string songFile = sFilePath + wholeString.substr(1, wholeString.size()-2);
-         if( parseSongInfo ) outSong.m_sMusicFile = songFile;
+         if( parseSongInfo ) outSong.m_sInstrumentTrackFile[InstrumentTrack_Rhythm] = songFile;
          headerInfo[2] = songFile;
+      } else if( !vsWords[0].compare("GuitarStream") )
+      {
+         std::string songFile = sFilePath + wholeString.substr(1, wholeString.size()-2);
+         if( parseSongInfo ) outSong.m_sInstrumentTrackFile[InstrumentTrack_Guitar] = songFile;
+      } else if( !vsWords[0].compare("BassStream") )
+      {
+         std::string songFile = sFilePath + wholeString.substr(1, wholeString.size()-2);
+         if( parseSongInfo ) outSong.m_sInstrumentTrackFile[InstrumentTrack_Bass] = songFile;
       }
    }
    return headerInfo;
