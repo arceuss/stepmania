@@ -31,6 +31,12 @@ enum HOPORules {
    Unknown_Rules
 };
 
+// whether this chart is 6 frets (GHL) or 5
+enum ChartFrets {
+   FIVE_FRETS,
+   SIX_FRETS
+};
+
 // helper for organizing midi data so no guessing which track is which
 struct MidiOrganizer {
    MidiFile *midFile;                    // Original file
@@ -43,6 +49,7 @@ struct MidiOrganizer {
    MidiFile::MidiEvent *venueTrack;   // Track for syncing stage events
    MidiFile::MidiEvent *otherTrack;   // Other unknown/uneeded track
    HOPORules HOPOType;                // Which hopo rule set the song uses
+   ChartFrets FretType;               // Whether to use 5 or 6 frets reading rules
 };
 
 // struct of data to pass back and forth when adding guitar mode notes
@@ -56,6 +63,7 @@ struct GuitarData {
    int iHopoResolution;
    int iCols;
    HOPORules hopoRules;
+   ChartFrets fretType;
 };
 
 // Prepares a struct of guitar data to be used
@@ -135,6 +143,7 @@ MidiOrganizer organizeMidi(MidiFile* mf)
             // Drums and vocals means this is a RB song
             // AFAIK anything past GH3 never had midis ripped because people thought
             // the new features would screw with existing midi parsers
+            // EDIT: I was wrong, people make midis with new features too
             else if(compareToString(tempTxt->buffer, "PART DRUMS") ||
                     compareToString(tempTxt->buffer, "PART_DRUMS") ||
                     compareToString(tempTxt->buffer, "BAND DRUMS") ||

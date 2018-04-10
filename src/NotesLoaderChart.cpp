@@ -63,7 +63,7 @@ std::vector<std::string> getLineWords(std::istringstream &iss)
    return vsWords;
 }
 
-NoteData parseNoteSection(std::istringstream &iss, int resolution, int iHopoResolution)
+NoteData parseNoteSection(std::istringstream &iss, int resolution, int iHopoResolution, bool isGHL)
 {
    NoteData newNotes;
    bool keepReading = true;
@@ -149,9 +149,9 @@ NoteData parseNoteSection(std::istringstream &iss, int resolution, int iHopoReso
          int iNoteTrack = atoi(vsWords[3].c_str());
          
          /* Track 5 is used to denote forced notes (sometimes E * is), this means that any note at the same
-          * time as that are toggled between HOPO and strum notes.
+          * time as that are toggled between HOPO and strum notes. It is track 8 for GHL
           */
-         if( iNoteTrack == 5 )
+         if( (iNoteTrack == 5 && !isGHL) || (iNoteTrack == 8 && isGHL) )
          {
             // copy/paste is bad, extract to new function?
             iLastForcedRow = atoi(vsWords[0].c_str());
@@ -169,6 +169,33 @@ NoteData parseNoteSection(std::istringstream &iss, int resolution, int iHopoReso
             
             continue;
          }
+         
+         /* Yet another denotation for tap notes
+          * do the same thing as above.
+          * Yes there's a lot of copy/paste for ass-backwards compatibility
+          */
+         if( iNoteTrack == 6 )
+         {
+            iLastTapRow = atoi(vsWords[0].c_str());
+            
+            // Search back and change any notes on this row to tap notes
+            TapNote tn = TAP_EMPTY;
+            
+            for( int l=0; l<5; l++ ) {
+               tn = newNotes.GetTapNote(l, BeatToNoteRow((float)iLastTapRow/resolution));
+               
+               if( tn != TAP_EMPTY ) {
+                  addNote(newNotes, l, BeatToNoteRow((float)iLastTapRow/resolution),
+                          BeatToNoteRow((float)iLastTapRow/resolution) + tn.iDuration, 1);
+               }
+            }
+            
+            continue;
+         }
+         
+         // This is open strums, so just change it to that
+         if( iNoteTrack == 7 )
+            iNoteTrack = isGHL ? 6 : 5;
          
          /* A note on sustained notes, Guitar Hero likes to have holds end exactly on beats, unfortunately this means that
           * sometimes a hold note can overlap into the next hold if they're in the same track. Need to check for this and
@@ -490,23 +517,23 @@ Difficulty parseDifficulty(std::string str)
 }
 
 void initSteps(Steps &out, Difficulty diff, std::istringstream &iss, int resolution, int hopoResolution,
-               std::vector<std::string> headerInfo)
+               std::vector<std::string> headerInfo, bool isGHL)
 {
    // some of this is default BS, only weirdos with guitars use .chart files
-   out.m_StepsType = StepsType_guitar_solo;
+   out.m_StepsType = isGHL ? StepsType_guitar_solo6 : StepsType_guitar_solo;
    out.SetChartStyle("Guitar");
    out.SetCredit( headerInfo[1] );
    out.SetDescription( headerInfo[1] );
    out.SetMusicFile( headerInfo[2] );
    out.SetDifficulty(diff);
    out.SetMeter(1); // yeah there's a way to get this from the chart, will try later
-   out.SetNoteData(parseNoteSection(iss, resolution, hopoResolution));
+   out.SetNoteData(parseNoteSection(iss, resolution, hopoResolution, isGHL));
    out.TidyUpData();
    out.SetSavedToDisk(true);
 }
 
-void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool parseSongInfo, std::string sFilePath,
-             std::string sFileName )
+bool ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool parseSongInfo, std::string sFilePath,
+             std::string sFileName, bool needGHL )
 {
    // 192 is default resolution per beat in some (poorly done) charts, in GH and RB, it's actually 480
    int resolution = 192;
@@ -516,6 +543,9 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
    
    // special vector for storing special things
    std::vector<std::string> headerInfo(3);
+   
+   // whether the desired chart was found or not (only applies to reading a single chart)
+   bool foundChart = false;
    
    // Screw efficiency, just gonna parse this word by word like I was gonna do with Python
    std::string bufStr(buf);
@@ -547,25 +577,29 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
          } else if( vsWords[0].find("Events") != std::string::npos ) {
             // parse events (only for whole song)
             if(parseSongInfo) parseEvents(iss, outSong, resolution);
-         } else if( vsWords[0].find("Single") != std::string::npos ) { // If it's not single mode, we don't care about it, for now
+            // TODO: maybe add the other steps too?
+         } else if( vsWords[0].find("Single") != std::string::npos || vsWords[0].find("GHLGuitar") != std::string::npos ) {
+            bool isGHL = vsWords[0].find("GHLGuitar") != std::string::npos;
             Difficulty currDiff = parseDifficulty(vsWords[0]);
             if( !parseSongInfo )
             {
-               if(currDiff != outSteps.GetDifficulty() ) {
+               if(currDiff != outSteps.GetDifficulty() || needGHL != isGHL ) {
                   // not the steps we're looking for
                   continue;
                } else {
                   // correct ones, load the step data
-                  outSteps.SetNoteData(parseNoteSection(iss, resolution, iHopoResolution));
+                  outSteps.SetNoteData(parseNoteSection(iss, resolution, iHopoResolution, isGHL));
                   outSteps.TidyUpData();
+                  foundChart = true;
                   break;
                }
             } else {
                // if we're parsing the whole song, we need all steps
                Steps* pNewNotes = outSong.CreateSteps();
-               initSteps(*pNewNotes, currDiff, iss, resolution, iHopoResolution, headerInfo);
+               initSteps(*pNewNotes, currDiff, iss, resolution, iHopoResolution, headerInfo, isGHL);
                pNewNotes->SetFilename(sFileName);
                outSong.AddSteps(pNewNotes);
+               foundChart = true;
             }
          } else { // don't care about this tag
             continue;
@@ -578,10 +612,11 @@ void ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
    if(parseSongInfo) {
       outSong.TidyUpData(false);
    }
+   return foundChart;
 }
 
 // Returns true if successful, false otherwise
-bool ReadFile( std::string sNewPath, Song &outSong, Steps &outSteps, bool parseSongInfo )
+bool ReadFile( std::string sNewPath, Song &outSong, Steps &outSteps, bool parseSongInfo, bool needGHL )
 {
    RageFile f;
    /* Open a file. */
@@ -597,10 +632,7 @@ bool ReadFile( std::string sNewPath, Song &outSong, Steps &outSteps, bool parseS
    int iBytesRead = f.Read( FileString );
    if( iBytesRead == -1 )return false;
    
-   ReadBuf( FileString.c_str(), iBytesRead, outSong, outSteps, parseSongInfo, sBasePath, sNewPath );
-   
-   // TODO: can the above operation fail somehow? Return false if it does
-   return true;
+   return ReadBuf( FileString.c_str(), iBytesRead, outSong, outSteps, parseSongInfo, sBasePath, sNewPath, needGHL );
 }
 
 void CHARTLoader::GetApplicableFiles( const std::string &sPath, std::vector<std::string> &out )
@@ -622,13 +654,13 @@ bool CHARTLoader::LoadFromDir( const std::string &sDir, Song &out ) {
    Steps *tempSteps = NULL;
    
    // Only need to use the first file, since there should only be 1
-   return ReadFile( dir+arrayCHARTFileNames[0], out, *tempSteps, true );
+   return ReadFile( dir+arrayCHARTFileNames[0], out, *tempSteps, true, false );
 }
 
 bool CHARTLoader::LoadNoteDataFromSimfile( const std::string & cachePath, Steps &out ) {
    Song *tempSong = NULL;
    // chart loader is ony for guitar mode
-   if(out.m_StepsType != StepsType_guitar_solo) return false;
+   if(out.m_StepsType != StepsType_guitar_solo && out.m_StepsType != StepsType_guitar_solo6) return false;
    // This is simple since the path is already given to us
-   return ReadFile(cachePath, *tempSong, out, false);
+   return ReadFile(cachePath, *tempSong, out, false, out.m_StepsType == StepsType_guitar_solo6);
 }
