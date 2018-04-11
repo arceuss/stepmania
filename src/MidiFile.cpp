@@ -12,7 +12,7 @@
 
 
 /* Function to read variable length values in files
- * This function will not change the original pointer
+ * This function will change the original pointer
  * @param pBuffer - pointer to where the variable length value begins
  * @returns The value stored in the variable length value
  */
@@ -270,8 +270,11 @@ MidiFile* ParseMidi(const char *pFile, size_t size)
             }
             else if(status == MidiFile::MidiEventType::MidiEventType_SYSEX || status == MidiFile::MidiEventType::MidiEventType_SYSEX2)
             {
-               // Ignore sysex events for now
                uint32_t bytes = ReadVarLen(pTrk);
+               MidiFile::MidiEvent_SYSEX *pSYSEX = new MidiFile::MidiEvent_SYSEX;
+               pEvent = pSYSEX;
+               pSYSEX->pData = pTrk;
+               pSYSEX->size = bytes;
                pTrk += bytes;
             }
             else

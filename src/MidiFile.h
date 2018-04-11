@@ -148,6 +148,13 @@ public:
       uint32_t size;
    };
    
+   // SYSEX events are basically custom events
+   struct MidiEvent_SYSEX : public MidiEvent
+   {
+      const char *pData;
+      uint32_t size;
+   };
+   
    // Metadata stored in the midi header gets stored in these
    char name[512];      // name of midi file
    int format;          // midi format number

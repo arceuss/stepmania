@@ -21,6 +21,67 @@
 // references:
 //http://rockband.scorehero.com/forum/viewtopic.php?t=1711
 //http://www.scorehero.com/forum/viewtopic.php?t=1179
+// these sources are only semi accurate, had to do more research on my own
+
+// function that reads a sysex payload and returns what to do with it
+// -1 = do nothing
+// 1  = tap start
+// 2  = tap stop
+// 3  = open start
+// 4  = open stop
+int translateSysex(const char *pData, Difficulty diff)
+{
+   // sysex payload codes. ask FireFox2000000 about these, I have no idea
+   // common header of what we're looking for
+   unsigned char commHeader[4] = {0x50, 0x53, 0x00, 0x00};
+   // indicates what the event is
+   unsigned char tapIndicator[2] = {0xFF, 0x04};
+   unsigned char openIndicator = 0x01;
+   unsigned char easyIndicator = 0x00;
+   unsigned char medIndicator = 0x01;
+   unsigned char hardIndicator = 0x02;
+   unsigned char expIndicator = 0x03;
+   // finals bytes
+   unsigned char onIndicator[2] = {0x01, 0xF7};
+   unsigned char offIndicator[2] = {0x00, 0xF7};
+   
+   // ensure the header is valid
+   for(int i = 0; i < 4; i++)
+   {
+      if(pData[i] != commHeader[i]) return -1;
+   }
+   
+   int ret = 0;
+   
+   // determine the type of message it is and if it fits
+   if (pData[4] == tapIndicator[0] && pData[5] == tapIndicator[1])
+   {
+      ret = 1;
+   }
+   else if (pData[5] == openIndicator &&
+            ((pData[4] == easyIndicator && diff == Difficulty_Easy) ||
+            (pData[4] == medIndicator && diff == Difficulty_Medium) ||
+            (pData[4] == hardIndicator && diff == Difficulty_Hard) ||
+            (pData[4] == expIndicator && diff == Difficulty_Challenge)))
+   {
+      ret = 3;
+   }
+   else
+   {
+      return -1;
+   }
+   
+   // verify the last bytes
+   if (pData[7] == onIndicator[1])
+   {
+      if (pData[6] == offIndicator[0])
+         ret += 1;
+      else if (pData[6] != onIndicator[0])
+         return -1;
+   }
+   
+   return ret;
+}
 
 // simple enum for if this midi is using Guitar Hero or Rock Band HOPO rules
 // In rockband, HOPOs can't occur after a chord if the note was part of the
@@ -56,33 +117,41 @@ struct MidiOrganizer {
 struct GuitarData {
    int *iPrevNoteMark;
    int iPrevNoteTrack;
-   int iLastForcedRow;
-   int iLastTapRow;
+   int iLastForcedHOPO;
+   int iLastForcedStrum;
    int iLastChordRow;
    int iResolution;
    int iHopoResolution;
    int iCols;
+   bool bInTapSection;
+   bool bInOpenSection;
    HOPORules hopoRules;
    ChartFrets fretType;
 };
 
 // Prepares a struct of guitar data to be used
-GuitarData getNewGuitarData(int resolution, int hopoResolution, int cols, HOPORules rules)
+GuitarData getNewGuitarData(int resolution, int hopoResolution, HOPORules rules, ChartFrets fretType)
 {
    GuitarData gd;
+   int cols = 0;
+   if (fretType == FIVE_FRETS) cols = 6;
+   else cols = 7;
    gd.iPrevNoteMark = (int*)malloc(cols * sizeof(int));
    
    for(int i=0; i<cols; i++) {
       gd.iPrevNoteMark[i] = -1;
    }
    gd.iPrevNoteTrack = -1;
-   gd.iLastForcedRow = -1;
-   gd.iLastTapRow = -1;
+   gd.iLastForcedHOPO = -1;
+   gd.iLastForcedStrum = -1;
    gd.iLastChordRow = -1;
    gd.iResolution = resolution;
    gd.iHopoResolution = hopoResolution;
    gd.iCols = cols;
+   gd.bInTapSection = false;
+   gd.bInOpenSection = false;
    gd.hopoRules = rules;
+   gd.fretType = fretType;
    
    return gd;
 }
@@ -111,6 +180,7 @@ MidiOrganizer organizeMidi(MidiFile* mf)
 {
    MidiOrganizer mo;
    mo.HOPOType = Unknown_Rules;
+   mo.FretType = FIVE_FRETS;
    mo.midFile = mf;
    mo.bassTrack = NULL;
    mo.guitarTrack = NULL;
@@ -134,6 +204,9 @@ MidiOrganizer organizeMidi(MidiFile* mf)
                compareToString(tempTxt->buffer, "PART_GUITAR") ||
                compareToString(tempTxt->buffer, "T1 GEMS")) {
                mo.guitarTrack = tempTrk;
+            } else if(compareToString(tempTxt->buffer, "PART GUITAR GHL")) {
+               mo.guitarTrack = tempTrk;
+               mo.FretType = SIX_FRETS;
             } else if(compareToString(tempTxt->buffer, "PART BASS") ||
                       compareToString(tempTxt->buffer, "PART_BASS") ||
                       compareToString(tempTxt->buffer, "PART RHYTHM") ||
@@ -185,24 +258,28 @@ MidiOrganizer organizeMidi(MidiFile* mf)
    return mo;
 }
 
-void getNoteRangeForDifficulty(Difficulty diff, int* lower, int* upper)
+// TODO: find ranges for GHL midis and put them in here
+void getNoteRangeForDifficulty(Difficulty diff, ChartFrets fretType, int* lower, int* upper)
 {
+   bool isGHL = false;
+   if (fretType == SIX_FRETS) isGHL = true;
+   
    switch(diff)
    {
       case Difficulty_Easy:
-         *lower = 60;
+         *lower = (isGHL ? 58 : 60);
          *upper = 66;
          break;
       case Difficulty_Medium:
-         *lower = 72;
+         *lower = (isGHL ? 70 : 72);
          *upper = 78;
          break;
       case Difficulty_Hard:
-         *lower = 84;
+         *lower = (isGHL ? 82 : 84);
          *upper = 90;
          break;
       case Difficulty_Challenge:
-         *lower = 96;
+         *lower = (isGHL ? 94 : 96);
          *upper = 102;
          break;
    }
@@ -248,14 +325,17 @@ bool checkHOPOConditions(int iNoteTrack, int iNoteMark, GuitarData gd)
    int prevNoteMark = -1;
    
    // quick check rules
-   // if this note is in a chord, then HOPO=no and that's that. No forcing applies.
-   if( gd.iLastChordRow == iNoteMark && gd.iLastChordRow != -1 )
+   // If forced, follow those rules
+   if( gd.iLastForcedStrum == iNoteMark )
    {
       return false;
    }
-   
-   // In rockband, the tap force column denotes a note should NOT be a HOPO
-   if( gd.iLastTapRow == iNoteMark && gd.hopoRules == RB_HOPO_Rules )
+   if( gd.iLastForcedHOPO == iNoteMark && gd.iLastForcedHOPO != -1 )
+   {
+      return true;
+   }
+   // if this note is in a chord, then HOPO=no
+   if( gd.iLastChordRow == iNoteMark && gd.iLastChordRow != -1 )
    {
       return false;
    }
@@ -289,14 +369,6 @@ bool checkHOPOConditions(int iNoteTrack, int iNoteMark, GuitarData gd)
       ShouldBeHOPO = false;
    }
    
-   // Reverse the note if the row was marked to be forced (GH)
-   // or force it to be always HOPO (RB)
-   if( gd.iLastForcedRow == iNoteMark && gd.iLastForcedRow != -1 )
-   {
-      if(gd.hopoRules == RB_HOPO_Rules) ShouldBeHOPO = true;
-      else ShouldBeHOPO = !ShouldBeHOPO;
-   }
-   
    return ShouldBeHOPO;
 }
 
@@ -328,8 +400,8 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
       }
    }
    
-   // determine if this is a forced note (on idx cols)
-   if(col == gd.iCols - 1)
+   // determine if this is a forced note (row 5 for 5fret, 7 in 6fret)
+   if((col == 5 && gd.iCols == 6) || (col == 7 && gd.iCols == 7))
    {
       // check if any other notes were placed on this row
       if(isChordRow)
@@ -345,16 +417,15 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
                notes.SetTapNote(i, startRow, TAP_EMPTY);
             } else { // else, replace the other note with the opposite type
                foundHighest = true;
-               bool wasHopo = (taps[i].type == TapNoteType_HOPO || taps[i].type == TapNoteType_HOPOHold) &&
-                              gd.hopoRules == GH_HOPO_Rules;
-               placeNote(notes, i, startRow, startRow + taps[i].iDuration, wasHopo ? 2 : 3);
+               placeNote(notes, i, startRow, startRow + taps[i].iDuration, 3);
             }
          }
       }
       // mark last forced note row
-      gd.iLastChordRow = start;
+      gd.iLastForcedHOPO = start;
    }
-   else if(col >= gd.iCols) // this row mean not a hopo in RB, or add a tap note in GH
+   // this row means not a hopo
+   else if((col == 6 && gd.iCols == 6) || (col == 8 && gd.iCols == 7))
    {
       // check if any other notes were placed on this row
       if(isChordRow)
@@ -363,19 +434,21 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
          for(int i=0; i<gd.iCols; i++)
          {
             if(taps[i] == TAP_EMPTY) continue;
-            placeNote(notes, i, startRow, startRow + taps[i].iDuration,
-                      gd.hopoRules == RB_HOPO_Rules ? 2 : 1);
+            placeNote(notes, i, startRow, startRow + taps[i].iDuration, 2);
          }
       }
       // mark last normal note row
-      gd.iLastTapRow = start;
+      gd.iLastForcedStrum = start;
    }
    else // this is a normal note
    {
+      // move open strum to the appropriate column
+      if(gd.bInOpenSection || (col == 0 && gd.iCols == 7)) col = gd.iCols - 1;
+      
       // place a tap/hold if this row is a tap row
-      if(start == gd.iLastTapRow)
+      if(gd.bInTapSection)
       {
-         placeNote(notes, col, startRow, endRow, gd.hopoRules == RB_HOPO_Rules ? 2 : 1);
+         placeNote(notes, col, startRow, endRow, 1);
       }
       else
       {
@@ -383,10 +456,9 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
          if(isChordRow)
          {
             // get if the last note was a hopo, should only be relevant for 1 note in row so this'll work
-            bool wasHopo = (taps[highestNote].type == TapNoteType_HOPO || taps[highestNote].type == TapNoteType_HOPOHold) ||
-                           gd.hopoRules == RB_HOPO_Rules;
+            bool wasHopo = taps[highestNote].type == TapNoteType_HOPO || taps[highestNote].type == TapNoteType_HOPOHold;
             // check if this row was forced
-            if(start == gd.iLastForcedRow)
+            if(start == gd.iLastForcedHOPO)
             {
                // check if this is the lowest note (only the highest will be saved)
                if(col < highestNote)
@@ -433,29 +505,47 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
  * Gets the notes from a midi track based on the standard rules of Guitar Hero/Rock Band
  * cols parameter is just in case drums or six-fret can be loaded in the future
  */
-NoteData getGHRBNotesFromTrack(MidiFile::MidiEvent* track, Difficulty diff, HOPORules rules, int resolution, int HOPOres, int cols)
+NoteData getGHRBNotesFromTrack(MidiFile::MidiEvent* track, Difficulty diff, HOPORules rules, ChartFrets fretType,
+                               int resolution, int HOPOres)
 {
    NoteData newNotes;
    MidiFile::MidiEvent* curEvt = track;
-   // +1 to account for forced hopo and tap tracks
-   std::vector<MidiFile::MidiEvent_Note*> notesInProgress(cols+1);
    // note bounds for difficulty
    int low = 0;
    int high = 0;
+   int cols = 0;
+   if (fretType == FIVE_FRETS) cols = 6;
+   else cols = 7;
+   // +1 to account for forced hopo and tap tracks
+   std::vector<MidiFile::MidiEvent_Note*> notesInProgress(cols+1);
    
-   getNoteRangeForDifficulty(diff, &low, &high);
+   getNoteRangeForDifficulty(diff, fretType, &low, &high);
    newNotes.SetNumTracks(cols);
    for(int i=0; i<cols+1; i++)
    {
       notesInProgress[i] = NULL;
    }
    
-   GuitarData gd = getNewGuitarData(resolution, HOPOres, cols, rules);
+   GuitarData gd = getNewGuitarData(resolution, HOPOres, rules, fretType);
    
    // While there are more events
    while(curEvt)
    {
-      if(curEvt->type == MidiFile::MidiEventType_Note)
+      // Sysex events denote special things like taps and open notes
+      if(curEvt->type == MidiFile::MidiEventType_SYSEX)
+      {
+         MidiFile::MidiEvent_SYSEX* tempSysex = (MidiFile::MidiEvent_SYSEX*) curEvt;
+         int type = translateSysex(tempSysex->pData, diff);
+         if (type > 2)
+         {
+            gd.bInTapSection = (type % 2 == 1);
+         }
+         else if (type > 0)
+         {
+            gd.bInOpenSection = (type % 2 == 1);
+         }
+      }
+      else if(curEvt->type == MidiFile::MidiEventType_Note)
       {
          MidiFile::MidiEvent_Note* tempNote = (MidiFile::MidiEvent_Note*) curEvt;
          int idx = tempNote->note - low;
@@ -878,22 +968,22 @@ bool MIDILoader::LoadFromDir( const std::string &sDir, Song &out ) {
          case 0:
             newSteps->SetDifficulty(Difficulty_Easy);
             newSteps->SetNoteData(getGHRBNotesFromTrack(mo.guitarTrack, Difficulty_Easy, mo.HOPOType,
-                                                        resolution, hopoResolution, 6));
+                                                        mo.FretType, resolution, hopoResolution));
             break;
          case 1:
             newSteps->SetDifficulty(Difficulty_Medium);
             newSteps->SetNoteData(getGHRBNotesFromTrack(mo.guitarTrack, Difficulty_Medium, mo.HOPOType,
-                                                        resolution, hopoResolution, 6));
+                                                        mo.FretType, resolution, hopoResolution));
             break;
          case 2:
             newSteps->SetDifficulty(Difficulty_Hard);
             newSteps->SetNoteData(getGHRBNotesFromTrack(mo.guitarTrack, Difficulty_Hard, mo.HOPOType,
-                                                        resolution, hopoResolution, 6));
+                                                        mo.FretType, resolution, hopoResolution));
             break;
          case 3:
             newSteps->SetDifficulty(Difficulty_Challenge);
             newSteps->SetNoteData(getGHRBNotesFromTrack(mo.guitarTrack, Difficulty_Challenge, mo.HOPOType,
-                                                        resolution, hopoResolution, 6));
+                                                        mo.FretType, resolution, hopoResolution));
             break;
          default:
             break;
@@ -925,7 +1015,8 @@ bool MIDILoader::LoadNoteDataFromSimfile( const std::string & cachePath, Steps &
    parseINI(sBasePath, &resolution, &hopoResolution, title, artist, charter);
    
    // Get the desired notes from the guitar track
-   out.SetNoteData(getGHRBNotesFromTrack(mo.guitarTrack, out.GetDifficulty(), mo.HOPOType, resolution, hopoResolution, 6));
+   out.SetNoteData(getGHRBNotesFromTrack(mo.guitarTrack, out.GetDifficulty(), mo.HOPOType,
+                                         mo.FretType, resolution, hopoResolution));
    out.TidyUpData();
    
    return true;
