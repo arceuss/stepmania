@@ -65,17 +65,18 @@ std::vector<std::string> getLineWords(std::istringstream &iss)
 
 NoteData parseNoteSection(std::istringstream &iss, int resolution, int iHopoResolution, bool isGHL)
 {
+   int numCols = isGHL ? 7 : 6;
    NoteData newNotes;
    bool keepReading = true;
    
    // setup
-   newNotes.SetNumTracks(6);
+   newNotes.SetNumTracks(numCols);
    // vectors so columns can be checked individually
-   std::vector<int> iPrevNoteMark(5);
+   std::vector<int> iPrevNoteMark(numCols - 1);
    int iPrevNoteTrack = -1;
-   std::vector<int> iPrevNoteLength(5);
-   std::vector<bool> bPrevNoteHOPO(5);
-   for(int i=0; i<5; i++) {
+   std::vector<int> iPrevNoteLength(numCols - 1);
+   std::vector<bool> bPrevNoteHOPO(numCols - 1);
+   for(int i=0; i<(numCols - 1); i++) {
       iPrevNoteMark[i] = -1;
       iPrevNoteLength[i] = -1;
       bPrevNoteHOPO[i] = false;
@@ -296,6 +297,7 @@ std::vector<std::string> parseHeader(std::istringstream &iss, Song &outSong, int
 {
    bool keepReading = true;
    std::vector<std::string> headerInfo(3);
+   bool onlyOneSong = true;
    
    while(keepReading)
    {
@@ -412,18 +414,26 @@ std::vector<std::string> parseHeader(std::istringstream &iss, Song &outSong, int
       } else if( !vsWords[0].compare("MusicStream") )
       {
          std::string songFile = sFilePath + wholeString.substr(1, wholeString.size()-2);
-         if( parseSongInfo ) outSong.m_sInstrumentTrackFile[InstrumentTrack_Rhythm] = songFile;
+         if( parseSongInfo ) outSong.m_sMusicFile = songFile;
          headerInfo[2] = songFile;
       } else if( !vsWords[0].compare("GuitarStream") )
       {
+         onlyOneSong = false;
          std::string songFile = sFilePath + wholeString.substr(1, wholeString.size()-2);
          if( parseSongInfo ) outSong.m_sInstrumentTrackFile[InstrumentTrack_Guitar] = songFile;
       } else if( !vsWords[0].compare("BassStream") )
       {
+         onlyOneSong = false;
          std::string songFile = sFilePath + wholeString.substr(1, wholeString.size()-2);
          if( parseSongInfo ) outSong.m_sInstrumentTrackFile[InstrumentTrack_Bass] = songFile;
       }
    }
+   
+   if(onlyOneSong && parseSongInfo)
+   {
+      outSong.m_sInstrumentTrackFile[InstrumentTrack_Rhythm] = "";
+   }
+   
    return headerInfo;
 }
 

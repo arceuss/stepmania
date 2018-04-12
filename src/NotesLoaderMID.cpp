@@ -514,14 +514,19 @@ NoteData getGHRBNotesFromTrack(MidiFile::MidiEvent* track, Difficulty diff, HOPO
    int low = 0;
    int high = 0;
    int cols = 0;
+   // 5fret: 6 columns in note data, 7 midi columns
+   // 6fret: 7 columns in note data, 9 midi columns
+   // why? 6fret has an extra col in midi for open notes, 5fret doesn't
    if (fretType == FIVE_FRETS) cols = 6;
-   else cols = 7;
-   // +1 to account for forced hopo and tap tracks
-   std::vector<MidiFile::MidiEvent_Note*> notesInProgress(cols+1);
+   else if(fretType == SIX_FRETS) cols = 7;
+   int bonusCols = 1;
+   if (fretType == SIX_FRETS) bonusCols = 2;
+   
+   std::vector<MidiFile::MidiEvent_Note*> notesInProgress(cols+bonusCols);
    
    getNoteRangeForDifficulty(diff, fretType, &low, &high);
    newNotes.SetNumTracks(cols);
-   for(int i=0; i<cols+1; i++)
+   for(int i=0; i<cols+bonusCols; i++)
    {
       notesInProgress[i] = NULL;
    }
@@ -785,7 +790,7 @@ void getMusicFiles( const std::string path, Song &out )
             out.m_sInstrumentTrackFile[InstrumentTrack_Guitar] = path + songFiles[i];
          } else if(!songFiles[i].compare("song.ogg"))
          {
-            out.m_sInstrumentTrackFile[InstrumentTrack_Rhythm] = path + songFiles[i];
+            out.m_sMusicFile = path + songFiles[i];
          } else if(!songFiles[i].compare("rhythm.ogg") ||
                    !songFiles[i].compare("bass.ogg"))
          {
@@ -955,7 +960,10 @@ bool MIDILoader::LoadFromDir( const std::string &sDir, Song &out ) {
       // TODO: Initialize data and stuff in these steps
       Steps* newSteps = out.CreateSteps();
       /* steps initialization stuff */
-      newSteps->m_StepsType = StepsType_guitar_solo;
+      if(mo.FretType == FIVE_FRETS)
+         newSteps->m_StepsType = StepsType_guitar_solo;
+      else if(mo.FretType == SIX_FRETS)
+         newSteps->m_StepsType = StepsType_guitar_solo6;
       newSteps->SetChartStyle("Guitar");
       newSteps->SetCredit( charter );
       newSteps->SetDescription( charter );
