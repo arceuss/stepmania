@@ -352,7 +352,7 @@ std::vector<std::string> parseHeader(std::istringstream &iss, Song &outSong, int
          if( !ini.ReadFile( sFilePath + "song.ini" ) )
          {
             // could not find ini file, oh well
-            *iHopoResolution = *resolution / 4;
+            *iHopoResolution = (*resolution / 3) + 4;
          } else
          {
             bool eightNoteHopo = false;
@@ -364,26 +364,29 @@ std::vector<std::string> parseHeader(std::istringstream &iss, Song &outSong, int
                      // example hopoResolutions given if resolution is 480
                   case 0:
                      // fewest HOPOs
-                     *iHopoResolution = *resolution / 2; // ~= 240
+                     *iHopoResolution = (*resolution / 6) + 4; // = 90 (1/16 note thirds)
                      break;
                   case 1:
                      // few HOPOs
-                     *iHopoResolution = *resolution * (3 / 8);// ~= 180
+                     *iHopoResolution = (*resolution / 4) + 4;// = 130 (1/16th notes)
                      break;
                   case 2:
                   default:
                      // normal HOPOs
-                     *iHopoResolution = *resolution / 4; // ~= 120 standard
+                     *iHopoResolution = (*resolution / 3) + 4; // = 170 standard (1/8th note 3rds)
                      break;
                   case 3:
                      // more HOPOs
-                     *iHopoResolution = *resolution * (3 / 16);// ~= 90
+                     *iHopoResolution = (*resolution / 2) + 4;// = 250 (1/8th notes)
                      break;
                   case 4:
                      // most HOPOs
-                     *iHopoResolution = *resolution / 8; // ~= 60
+                     *iHopoResolution = (*resolution / 1.5) + 4; // = 330 (1/2 note 3rds)
                      break;
-                     // song.ini details say this can go up to 5, but FoFiX source code says otherwise
+                  case 5:
+                     // most HOPOs
+                     *iHopoResolution = *resolution + 4; // = 490 (1/4 notes)
+                     break;
                }
             }
             // next, if eighthnotes count as hopos, divide the hopoResolution in half
@@ -549,7 +552,7 @@ bool ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
    int resolution = 192;
    
    // HOPO frequency varies in FoFiX because HOPO reading sucks in Guitar Hero
-   int iHopoResolution = 120;
+   int iHopoResolution = 68;
    
    // special vector for storing special things
    std::vector<std::string> headerInfo(3);

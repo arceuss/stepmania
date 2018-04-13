@@ -720,7 +720,7 @@ void parseINI(std::string sFilePath, int* resolution, int* hopoResolution, std::
    if( !ini.ReadFile( sFilePath + "song.ini" ) )
    {
       // could not find ini file, oh well
-      *hopoResolution = *resolution / 4;
+      *hopoResolution = (*resolution / 3) + 10;
    } else
    {
       bool eightNoteHopo = false;
@@ -732,26 +732,29 @@ void parseINI(std::string sFilePath, int* resolution, int* hopoResolution, std::
                // example hopoResolutions given if resolution is 480
             case 0:
                // fewest HOPOs
-               *hopoResolution = *resolution / 2; // ~= 240
+               *hopoResolution = (*resolution / 6) + 10; // = 90 (1/16 note thirds)
                break;
             case 1:
                // few HOPOs
-               *hopoResolution = *resolution * (3 / 8);// ~= 180
+               *hopoResolution = (*resolution / 4) + 10;// = 130 (1/16th notes)
                break;
             case 2:
             default:
                // normal HOPOs
-               *hopoResolution = *resolution / 4; // ~= 120 standard
+               *hopoResolution = (*resolution / 3) + 10; // = 170 standard (1/8th note 3rds)
                break;
             case 3:
                // more HOPOs
-               *hopoResolution = *resolution * (3 / 16);// ~= 90
+               *hopoResolution = (*resolution / 2) + 10;// = 250 (1/8th notes)
                break;
             case 4:
                // most HOPOs
-               *hopoResolution = *resolution / 8; // ~= 60
+               *hopoResolution = (*resolution / 1.5) + 10; // = 330 (1/2 note 3rds)
                break;
-               // song.ini details say this can go up to 5, but FoFiX source code says otherwise
+            case 5:
+               // most HOPOs
+               *hopoResolution = *resolution + 10; // = 490 (1/4 notes)
+               break;
          }
       }
       // next, if eighthnotes count as hopos, divide the hopoResolution in half
@@ -925,7 +928,7 @@ bool MIDILoader::LoadFromDir( const std::string &sDir, Song &out ) {
    
    // Parse meta info
    int resolution = mf->ticksPerBeat;
-   int hopoResolution = resolution / 4;
+   int hopoResolution = (resolution / 3) + 10;
    std::string title = "";
    std::string artist = "";
    std::string charter = "";
@@ -1016,7 +1019,7 @@ bool MIDILoader::LoadNoteDataFromSimfile( const std::string & cachePath, Steps &
    // Get the HOPO resolution
    std::string sBasePath = cachePath.substr(0, cachePath.find_last_of("/")+1);
    int resolution = mf->ticksPerBeat;
-   int hopoResolution = resolution / 4;
+   int hopoResolution = (resolution / 3) + 10;
    std::string title = "";
    std::string artist = "";
    std::string charter = "";
