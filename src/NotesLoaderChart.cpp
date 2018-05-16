@@ -116,13 +116,14 @@ NoteData parseNoteSection(std::istringstream &iss, int resolution, int iHopoReso
             
             // Search back and change any notes on this row to their opposite
             TapNote tn = TAP_EMPTY;
-            bool wasHopo = false;
             
-            for( int l=0; l<5; l++ ) {
+            for( int l=0; l<numCols - 1; l++ ) {
                tn = newNotes.GetTapNote(l, BeatToNoteRow((float)iLastForcedRow/resolution));
-               wasHopo = tn.type == TapNoteType_HOPO || tn.type == TapNoteType_HOPOHold;
-               addNote(newNotes, l, BeatToNoteRow((float)iLastForcedRow/resolution),
-                       BeatToNoteRow((float)iLastForcedRow/resolution) + tn.iDuration, wasHopo ? 3 : 2);
+               if( tn != TAP_EMPTY ) {
+                  bool wasHopo = tn.type == TapNoteType_HOPO || tn.type == TapNoteType_HOPOHold;
+                  addNote(newNotes, l, BeatToNoteRow((float)iLastForcedRow/resolution),
+                          BeatToNoteRow((float)iLastForcedRow/resolution) + tn.iDuration, wasHopo ? 2 : 3);
+               }
             }
          }
          
@@ -134,7 +135,7 @@ NoteData parseNoteSection(std::istringstream &iss, int resolution, int iHopoReso
             // Search back and change any notes on this row to tap notes
             TapNote tn = TAP_EMPTY;
             
-            for( int l=0; l<5; l++ ) {
+            for( int l=0; l<numCols - 1; l++ ) {
                tn = newNotes.GetTapNote(l, BeatToNoteRow((float)iLastTapRow/resolution));
                
                if( tn != TAP_EMPTY ) {
@@ -159,13 +160,14 @@ NoteData parseNoteSection(std::istringstream &iss, int resolution, int iHopoReso
             
             // Search back and change any notes on this row to their opposite
             TapNote tn = TAP_EMPTY;
-            bool wasHopo = false;
             
-            for( int l=0; l<5; l++ ) {
+            for( int l=0; l<numCols - 1; l++ ) {
                tn = newNotes.GetTapNote(l, BeatToNoteRow((float)iLastForcedRow/resolution));
-               wasHopo = tn.type == TapNoteType_HOPO || tn.type == TapNoteType_HOPOHold;
-               addNote(newNotes, l, BeatToNoteRow((float)iLastForcedRow/resolution),
-                       BeatToNoteRow((float)iLastForcedRow/resolution) + tn.iDuration, wasHopo ? 3 : 2);
+               if( tn != TAP_EMPTY ) {
+                  bool wasHopo = tn.type == TapNoteType_HOPO || tn.type == TapNoteType_HOPOHold;
+                  addNote(newNotes, l, BeatToNoteRow((float)iLastForcedRow/resolution),
+                          BeatToNoteRow((float)iLastForcedRow/resolution) + tn.iDuration, wasHopo ? 2 : 3);
+               }
             }
             
             continue;
@@ -182,7 +184,7 @@ NoteData parseNoteSection(std::istringstream &iss, int resolution, int iHopoReso
             // Search back and change any notes on this row to tap notes
             TapNote tn = TAP_EMPTY;
             
-            for( int l=0; l<5; l++ ) {
+            for( int l=0; l<numCols - 1; l++ ) {
                tn = newNotes.GetTapNote(l, BeatToNoteRow((float)iLastTapRow/resolution));
                
                if( tn != TAP_EMPTY ) {
@@ -218,7 +220,7 @@ NoteData parseNoteSection(std::istringstream &iss, int resolution, int iHopoReso
          
          // If this note and the previous note are on the same beat and the previous note was a HOPO,
          // Change it to a normal gem
-         for( int k=0; k<5; ++k )
+         for( int k=0; k<numCols - 1; ++k )
          {
             if( bPrevNoteHOPO[k] && k != iNoteTrack && std::abs(iNoteMark - iPrevNoteMark[k]) <= 1 )
             {
@@ -247,7 +249,7 @@ NoteData parseNoteSection(std::istringstream &iss, int resolution, int iHopoReso
              */
             bool ShouldBeHOPO = false;
             
-            for( int k=0; k<5; ++k )
+            for( int k=0; k<numCols - 1; ++k )
             {
                // difference is less than hopo resolution, notes on different tracks, and it's not the 1st note, HOPO=yes
                if((std::abs(iNoteMark - iPrevNoteMark[k]) - 1 <= iHopoResolution) && (iNoteTrack != iPrevNoteTrack) &&
