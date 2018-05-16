@@ -3278,9 +3278,9 @@ static const Style g_Style_Guitar_Group =
 static const Style g_Style_Guitar_Solo6 =
 {	// STYLE_GUITAR_SOLO6
    true,				// m_bUsedForGameplay
-   false,				// m_bUsedForEdit
+   true,				// m_bUsedForEdit
    false,				// m_bUsedForDemonstration
-   false,				// m_bUsedForHowToPlay
+   true,				// m_bUsedForHowToPlay
    "solo6",			// m_szName
    StepsType_guitar_solo6,	// m_StepsType
    StyleType_OnePlayerOneSide,		// m_StyleType
@@ -3320,7 +3320,7 @@ static const Style g_Style_Guitar_Group6 =
 {	// STYLE_GUITAR_GROUP6
    true,				// m_bUsedForGameplay
    false,				// m_bUsedForEdit
-   false,				// m_bUsedForDemonstration
+   true,				// m_bUsedForDemonstration
    false,				// m_bUsedForHowToPlay
    "group6",			// m_szName
    StepsType_guitar_solo6,	// m_StepsType

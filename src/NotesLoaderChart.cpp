@@ -72,11 +72,11 @@ NoteData parseNoteSection(std::istringstream &iss, int resolution, int iHopoReso
    // setup
    newNotes.SetNumTracks(numCols);
    // vectors so columns can be checked individually
-   std::vector<int> iPrevNoteMark(numCols - 1);
+   std::vector<int> iPrevNoteMark(numCols);
    int iPrevNoteTrack = -1;
-   std::vector<int> iPrevNoteLength(numCols - 1);
-   std::vector<bool> bPrevNoteHOPO(numCols - 1);
-   for(int i=0; i<(numCols - 1); i++) {
+   std::vector<int> iPrevNoteLength(numCols);
+   std::vector<bool> bPrevNoteHOPO(numCols);
+   for(int i=0; i<(numCols); i++) {
       iPrevNoteMark[i] = -1;
       iPrevNoteLength[i] = -1;
       bPrevNoteHOPO[i] = false;

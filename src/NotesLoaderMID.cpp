@@ -308,6 +308,16 @@ void placeNote(NoteData &notes, int track, int start, int end, int noteCategory)
       heldTapKind = TAP_EMPTY;
    }
    
+   if( start > 100000)
+   {
+      // do something so this stupid breakpoint works
+      int athing = start + end;
+      if( athing > 100000 )
+      {
+         //return;
+      }
+   }
+   
    if( end > start )
    {
       notes.AddHoldNote(track, start, end, heldTapKind);
@@ -536,6 +546,14 @@ NoteData getGHRBNotesFromTrack(MidiFile::MidiEvent* track, Difficulty diff, HOPO
    // While there are more events
    while(curEvt)
    {
+      if(curEvt->delta > 100000)
+      {
+         int something = curEvt->delta + curEvt->tick;
+         if(something > 100001)
+         {
+            //return;
+         }
+      }
       // Sysex events denote special things like taps and open notes
       if(curEvt->type == MidiFile::MidiEventType_SYSEX)
       {

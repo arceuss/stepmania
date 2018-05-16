@@ -15,7 +15,7 @@ return function(button_list, stepstype, skin_parameters)
 			Def.Sprite{
 			Texture= tap_redir[button].." Ready Receptor.png", InitCommand= function(self)
 				self:rotationz(0):effectclock("beat")
-					:draworder(newfield_draw_order.receptor)
+					:draworder(notefield_draw_order.receptor)
 				if tap_redir[button] == "Strum" then
 					self:visible(false)
 				end
@@ -27,7 +27,7 @@ return function(button_list, stepstype, skin_parameters)
 			Def.Sprite{
 			Texture= tap_redir[button].." Go Receptor.png", InitCommand= function(self)
 				self:rotationz(0):effectclock("beat")
-					:draworder(newfield_draw_order.receptor):visible(false)
+					:draworder(notefield_draw_order.receptor):visible(false)
 			end,
 			WidthSetCommand= function(self, param)
 				param.column:set_layer_fade_type(self, "FieldLayerFadeType_Receptor")

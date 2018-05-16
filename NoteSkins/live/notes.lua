@@ -63,23 +63,23 @@ return function(button_list, stepstype)
 			-- new thing to line up columns
 			custom_x= col_position[button],
 			taps= {
-				NewSkinTapPart_Tap= {
+				NoteSkinTapPart_Tap= {
 					state_map= tap_state_map,
 					actor= Def.Sprite{Texture= tap_redir[button].." Tap Note.png",
 					InitCommand= function(self) self:rotationz(0) end}
 					},
-				NewSkinTapPart_Mine= {
+				NoteSkinTapPart_Mine= {
 					state_map= mine_state_map,
 					actor= Def.Sprite{Texture= "mine.png"}},
-				NewSkinTapPart_Lift= { -- fuck lifts
+				NoteSkinTapPart_Lift= { -- fuck lifts
 					state_map= lift_state_map,
 					actor= Def.Sprite{Texture= tap_redir[button].." Tap HOPO.png",
 						InitCommand= function(self) self:rotationz(0) end}},
-				NewSkinTapPart_Gem= {
+				NoteSkinTapPart_Gem= {
 					state_map= tap_state_map,
 					actor= Def.Sprite{Texture= tap_redir[button].." Tap Gem.png",
 						InitCommand= function(self) self:rotationz(0) end}},
-				NewSkinTapPart_HOPO= {
+				NoteSkinTapPart_HOPO= {
 					state_map= lift_state_map,
 					actor= Def.Sprite{Texture= tap_redir[button].." Tap HOPO.png",
 						InitCommand= function(self) self:rotationz(0) end}},
