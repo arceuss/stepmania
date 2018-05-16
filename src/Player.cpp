@@ -2353,24 +2353,21 @@ void Player::Step( int col, int row, const RageTimer &tm, bool bHeld, bool bRele
 	// calculate TapNoteScore
 	TapNoteScore score = TNS_None;
    
-   // in guitar mode, check all columns for overlapping note
+   // in guitar mode, check all columns for overlapping note, except on open strums
    int actualCol = col;
-   if( m_iStrumCol != -1 && guitarGradeCode != 0)
+   if( m_iStrumCol != -1 && guitarGradeCode != 0 && m_iTopFret != -1)
    {
       int tempRow = -1;
       int oldRow = iRowOfOverlappingNoteOrRow;
       bool foundARow = false;
       
       // prioritize the top fret
-      if(m_iTopFret != -1)
+      tempRow = GetClosestNote( m_iTopFret, iSongRow, iStepSearchRows, iStepSearchRows, false );
+      if(tempRow != -1)
       {
-         tempRow = GetClosestNote( m_iTopFret, iSongRow, iStepSearchRows, iStepSearchRows, false );
-         if(tempRow != -1)
-         {
-            foundARow = true;
-            iRowOfOverlappingNoteOrRow = tempRow;
-            actualCol = m_iTopFret;
-         }
+         foundARow = true;
+         iRowOfOverlappingNoteOrRow = tempRow;
+         actualCol = m_iTopFret;
       }
       
       // if that fails, try all rows
