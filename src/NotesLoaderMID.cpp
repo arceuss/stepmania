@@ -388,6 +388,12 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
    } else {
       realEnd = start;
    }
+   // reorganize the notes for guitar hero live, since GHL midis put open strum as col 0
+   if(gd.iCols == 7 && col < 7)
+   {
+      col--;
+   }
+   
    int startRow = BeatToNoteRow((float)start/gd.iResolution);
    int endRow = BeatToNoteRow((float)realEnd/gd.iResolution);
    // get all notes on current row, in case any need to be replaced
@@ -443,7 +449,7 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
    else // this is a normal note
    {
       // move open strum to the appropriate column
-      if(gd.bInOpenSection || (col == 0 && gd.iCols == 7)) col = gd.iCols - 1;
+      if(gd.bInOpenSection || (col == -1 && gd.iCols == 7)) col = gd.iCols - 1;
       
       // place a tap/hold if this row is a tap row
       if(gd.bInTapSection)
