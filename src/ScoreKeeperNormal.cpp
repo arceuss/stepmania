@@ -247,7 +247,7 @@ void ScoreKeeperNormal::AddTapRowScore( TapNoteScore score, const NoteData &nd, 
 extern ThemeMetric<bool> PENALIZE_TAP_SCORE_NONE;
 void ScoreKeeperNormal::HandleTapScoreNone()
 {
-	if( PENALIZE_TAP_SCORE_NONE )
+	if( PENALIZE_TAP_SCORE_NONE || (GAMESTATE && !strcmp(GAMESTATE->GetCurrentGame()->gameName.c_str(), "guitar")))
 	{
 		m_pPlayerStageStats->m_iCurCombo = 0;
 
