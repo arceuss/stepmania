@@ -487,8 +487,18 @@ void parseEvents(std::istringstream &iss, Song &out, int resolution)
       // Parse section labels
       // on good charts, this will only be the section title
       // on bad charts, this will include a bunch of garbage too
+      // sometimes this even has spaces, sometimes it doesn't, people can't make up their damn minds
       int end = vsWords.size()-1;
-      std::string sectionTitle = vsWords[end].substr(0, vsWords[end].size()-1);
+      std::string sectionTitle = "";
+      int i = 4;
+      while( i < end )
+      {
+         sectionTitle += vsWords[i];
+         sectionTitle += ' ';
+         i++;
+      }
+      
+      sectionTitle += vsWords[end].substr(0, vsWords[end].size()-1);
       // some charts have erroneous sections and that makes this annoying
       if(sectionTitle.size() > 2) {
          out.m_SongTiming.AddSegment(LabelSegment(BeatToNoteRow(atof(vsWords[0].c_str())/resolution),sectionTitle));
