@@ -291,11 +291,16 @@ MidiFile* ParseMidi(const char *pFile, size_t size)
                
                int eventType = status&0xF0;
                
-               int param1 = ReadVarLen(pTrk);
+               // some malformed midis cannot be trusted to conform to expectations, do not readvarlen these!
+               int param1 = (*pTrk & 0x7F);
+               pTrk++;
                int param2 = 0;
                // param2 will contain useful info, if the event isn't programChange or channelAfterTouch
                if(eventType != MidiFile::MidiNote_ProgramChange && eventType != MidiFile::MidiNote_ChannelAfterTouch)
-                  param2 = ReadVarLen(pTrk);
+               {
+                  param2 = (*pTrk & 0x7F);
+                  pTrk++;
+               }
                
                switch(eventType)
                {
