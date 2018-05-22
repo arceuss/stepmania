@@ -241,7 +241,10 @@ void ScoreKeeperNormal::AddHoldScore( HoldNoteScore hns )
 
 void ScoreKeeperNormal::AddTapRowScore( TapNoteScore score, const NoteData &nd, int iRow )
 {
-	AddScoreInternal( score );
+   if( GAMESTATE && !strcmp(GAMESTATE->GetCurrentGame()->gameName.c_str(), "guitar") )
+      AddScoreGuitarTap(nd, iRow);
+   else
+      AddScoreInternal( score );
 }
 
 extern ThemeMetric<bool> PENALIZE_TAP_SCORE_NONE;
@@ -256,6 +259,56 @@ void ScoreKeeperNormal::HandleTapScoreNone()
 	}
 
 	// TODO: networking code
+}
+
+// special scoring for guitar mode (based on GH3 scoring)
+// 50pts per note, chords are 50 per note in chord
+// every 10 combos increases the multiplier up to 4
+// the note hit to increase the combo counts on the higher multiplier
+// chords only count as 1 for the combo
+// held notes are 25 points per beat
+// the new multiplier also applies to the held part if its on the 10th note
+void ScoreKeeperNormal::AddScoreGuitarTap( const NoteData &nd, int iRow )
+{
+   // This is usually on anyways
+   if( m_UseInternalScoring )
+   {
+      int numNotes = 0;
+      int multiplier = (m_pPlayerStageStats->m_iCurCombo / 10) + 1;
+      if( multiplier > 4 ) multiplier = 4;
+      for( int track = 0; track < nd.GetNumTracks(); ++track )
+      {
+         const TapNote &tn = nd.GetTapNote( track, iRow );
+         
+         if( tn.type != TapNoteType_Empty )
+         {
+            numNotes++;
+            if( tn.result.tns >= m_MinScoreToMaintainCombo )
+               m_pPlayerStageStats->m_iScore += 50 * multiplier;
+         }
+      }
+      
+      // ... its almost impossible to calculate max score from here, so base score is used
+      m_pPlayerStageStats->m_iCurMaxScore += 50 * numNotes * multiplier;
+      m_pPlayerStageStats->m_iBaseScore += 50 * numNotes;
+   }
+}
+
+void ScoreKeeperNormal::AddScoreGuitarHold( const TapNote &tn )
+{
+   if( m_UseInternalScoring )
+   {
+      int multiplier = (m_pPlayerStageStats->m_iCurCombo / 10) + 1;
+      if( multiplier > 4 ) multiplier = 4;
+      // because SM hates held notes that run into others, I shorten them all by 1/32th note on import
+      // lets give some of that back
+      float len = NoteRowToBeat(tn.iDuration) + 0.125;
+      
+      if( tn.HoldResult.hns == HNS_Held )
+         m_pPlayerStageStats->m_iScore += len * 25 * multiplier;
+      m_pPlayerStageStats->m_iCurMaxScore += len * 25 * multiplier;
+      m_pPlayerStageStats->m_iBaseScore += len * 25;
+   }
 }
 
 void ScoreKeeperNormal::AddScoreInternal( TapNoteScore score )
@@ -631,7 +684,10 @@ void ScoreKeeperNormal::HandleHoldScore( const TapNote &tn )
 	m_pPlayerStageStats->m_iCurPossibleDancePoints += HoldNoteScoreToDancePoints( HNS_Held );
 	m_pPlayerStageStats->m_iHoldNoteScores[holdScore] ++;
 
-	AddHoldScore( holdScore );
+   if( GAMESTATE && !strcmp(GAMESTATE->GetCurrentGame()->gameName.c_str(), "guitar") )
+      AddScoreGuitarHold(tn);
+   else
+      AddHoldScore( holdScore );
 
 	// TODO: Remove indexing with PlayerNumber
 	PlayerNumber pn = m_pPlayerState->m_PlayerNumber;

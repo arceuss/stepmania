@@ -5,6 +5,7 @@
 #include "RageLog.h"
 #include "RageTimer.h"
 #include "GameState.h"
+#include "Game.h"
 #include "RageMath.h"
 #include "ThemeManager.h"
 #include "Song.h"
@@ -262,7 +263,7 @@ void LifeMeterBar::SetLife(float value)
 extern ThemeMetric<bool> PENALIZE_TAP_SCORE_NONE;
 void LifeMeterBar::HandleTapScoreNone()
 {
-	if( PENALIZE_TAP_SCORE_NONE )
+	if( PENALIZE_TAP_SCORE_NONE || (GAMESTATE && !strcmp(GAMESTATE->GetCurrentGame()->gameName.c_str(), "guitar")))
 		ChangeLife( TNS_None );
 }
 

@@ -77,6 +77,8 @@ public:
 	unsigned int		m_iCurMaxScore;
 	/** @brief The maximum score the Player can get this goaround. */
 	unsigned int		m_iMaxScore;
+   /** @brief The base score of all notes hit with no multiplier. */
+   unsigned int      m_iBaseScore;
 
 	/**
 	 * @brief The possible RadarValues for a song.

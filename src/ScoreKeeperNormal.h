@@ -18,6 +18,8 @@ AutoScreenMessage( SM_PlayToasty );
 class ScoreKeeperNormal: public ScoreKeeper
 {
 	void AddScoreInternal( TapNoteScore score );
+   void AddScoreGuitarTap( const NoteData &nd, int iRow );
+   void AddScoreGuitarHold( const TapNote &tn );
 	int CalcNextToastyAt(int level);
 
 	int	m_iScoreRemainder;

@@ -204,10 +204,11 @@ NoteData parseNoteSection(std::istringstream &iss, int resolution, int iHopoReso
           * sometimes a hold note can overlap into the next hold if they're in the same track. Need to check for this and
           * correct it by shortening the first hold slightly (32nd note shorter than full beat)
           * Also, rounding errors in Chart2Mid2Chart mean it can be off by 1
+          * NOTE: in midi, I skip all this by just shortening all holds by 1/32, so lets make this even
           */
          int iNoteMark = atoi(vsWords[0].c_str());
-         int iNoteLength = atoi(vsWords[4].c_str());
-         
+         int iNoteLength = atoi(vsWords[4].c_str()) - (resolution / 8);
+         /*
          if( iPrevNoteLength[iNoteTrack] + iPrevNoteMark[iNoteTrack] + 1 >= iNoteMark ) {
             // sustain note correction
             newNotes.SetTapNote(iNoteTrack, BeatToNoteRow((float)iPrevNoteMark[iNoteTrack]/resolution), TAP_EMPTY);
@@ -216,7 +217,7 @@ NoteData parseNoteSection(std::istringstream &iss, int resolution, int iHopoReso
             addNote(newNotes, iNoteTrack, BeatToNoteRow((float)iPrevNoteMark[iNoteTrack]/resolution),
                     BeatToNoteRow((float)(iPrevNoteMark[iNoteTrack] + iPrevNoteLength[iNoteTrack])/resolution),
                     bPrevNoteHOPO[iNoteTrack] ? 3 : 2);
-         }
+         }*/
          
          // If this note and the previous note are on the same beat and the previous note was a HOPO,
          // Change it to a normal gem

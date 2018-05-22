@@ -52,6 +52,7 @@ void PlayerStageStats::InternalInit()
 	m_iScore = 0;
 	m_iMaxScore = 0;
 	m_iCurMaxScore = 0;
+   m_iBaseScore = 0;
 	m_iSongsPassed = 0;
 	m_iSongsPlayed = 0;
 	m_fLifeRemainingSeconds = 0;
@@ -113,6 +114,7 @@ void PlayerStageStats::AddStats( const PlayerStageStats& other )
 	m_iScore += other.m_iScore;
 	m_iMaxScore += other.m_iMaxScore;
 	m_iCurMaxScore += other.m_iCurMaxScore;
+   m_iBaseScore += other.m_iBaseScore;
 	m_radarPossible += other.m_radarPossible;
 	m_radarActual += other.m_radarActual;
 	m_iSongsPassed += other.m_iSongsPassed;
@@ -365,6 +367,7 @@ void PlayerStageStats::ResetScoreForLesson()
 	m_iScore = 0;
 	m_iCurMaxScore = 0;
 	m_iMaxScore = 0;
+   m_iBaseScore = 0;
 }
 
 void PlayerStageStats::SetLifeRecordAt( float fLife, float fStepsSecond )
