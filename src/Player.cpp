@@ -2115,6 +2115,7 @@ TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, 
             if(IsChordHit(row, iNotesInRow) && fSecondsFromExact <= GetWindowSeconds(TW_W3))
             {
                // Chord hit! grade every note now
+               retScore = ScoreFromFloat(fSecondsFromExact);
                for(int i=0; i<m_iStrumCol; i++)
                {
                   if(m_vbFretIsDown[i])
@@ -2123,10 +2124,9 @@ TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, 
                      DEBUG_ASSERT( iter2!= m_NoteData.end(i) );
                      auto &itN = iter2->second;
                      
-                     GradeNote(TNS_W1, itN, i, fNoteOffset, row);
+                     GradeNote(retScore, itN, i, fNoteOffset, row);
                   }
                }
-               retScore = ScoreFromFloat(fSecondsFromExact);
                m_bHOPOPossible = true;
             }
             else

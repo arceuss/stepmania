@@ -200,6 +200,21 @@ Grade PlayerStageStats::GetGrade() const
       //   "    " x2.8 = 5 stars = A
       // below 3 stars is failing, but we'll call that D
       // and technically it goes higher but you need star power
+      // The default theme is weird with grades and I can't find where it changes the number of grade tiers
+      // also can't think of a better way to do this but if it works its magic
+      bool useExtGrade = (7 < THEME->GetMetricI("PlayerStageStats", "NumGradeTiersUsed"));
+      // yeah that didn't work, A+ job there with the default theme /s
+      // what the fuck, below throws a bunch of missing metric alerts im so confused
+      /*
+      int numGrades = 0;
+      FOREACH_ENUM( Grade,g)
+      {
+         if( 0.0 != GRADE_PERCENT_TIER(g) )
+            numGrades++;
+      }
+      bool useExtGrade = (7 < numGrades);
+       */
+      
       if( m_iScore >= m_iBaseScore * 2.8 )
       {
          // if they get full combo, give them extra special grading
@@ -208,13 +223,13 @@ Grade PlayerStageStats::GetGrade() const
          else if( FullComboOfScore(TNS_W2) )
             return Grade_Tier02;
          else if( FullComboOfScore(TNS_W3) )
-            return Grade_Tier03;
+            return useExtGrade ? Grade_Tier04 : Grade_Tier03;
          else
-            return Grade_Tier04;
+            return useExtGrade ? Grade_Tier07 : Grade_Tier04;
       }
-      else if( m_iScore >= m_iBaseScore * 2 ) return Grade_Tier05;
-      else if( m_iScore >= m_iBaseScore ) return Grade_Tier06;
-      else return Grade_Tier07;
+      else if( m_iScore >= m_iBaseScore * 2 ) return useExtGrade ? Grade_Tier10 : Grade_Tier05;
+      else if( m_iScore >= m_iBaseScore ) return useExtGrade ? Grade_Tier13 : Grade_Tier06;
+      else return useExtGrade ? Grade_Tier16 : Grade_Tier07;
    }
    
 	bool bIsBeginner = false;
