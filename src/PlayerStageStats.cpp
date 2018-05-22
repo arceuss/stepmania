@@ -200,20 +200,9 @@ Grade PlayerStageStats::GetGrade() const
       //   "    " x2.8 = 5 stars = A
       // below 3 stars is failing, but we'll call that D
       // and technically it goes higher but you need star power
-      // The default theme is weird with grades and I can't find where it changes the number of grade tiers
-      // also can't think of a better way to do this but if it works its magic
-      bool useExtGrade = (7 < THEME->GetMetricI("PlayerStageStats", "NumGradeTiersUsed"));
-      // yeah that didn't work, A+ job there with the default theme /s
-      // what the fuck, below throws a bunch of missing metric alerts im so confused
-      /*
-      int numGrades = 0;
-      FOREACH_ENUM( Grade,g)
-      {
-         if( 0.0 != GRADE_PERCENT_TIER(g) )
-            numGrades++;
-      }
-      bool useExtGrade = (7 < numGrades);
-       */
+      // The default theme is stupid, says there's only 7 tiers but actually uses 17
+      bool useExtGrade = (7 < THEME->GetMetricI("PlayerStageStats", "NumGradeTiersUsed")) ||
+                           !strcmp(THEME->GetCurThemeName().c_str(), "default");
       
       if( m_iScore >= m_iBaseScore * 2.8 )
       {
