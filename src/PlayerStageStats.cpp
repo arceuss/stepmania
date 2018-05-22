@@ -5,6 +5,7 @@
 #include "ThemeManager.h"
 #include "LuaManager.h"
 #include "GameState.h"
+#include "Game.h"
 #include "Course.h"
 #include "Steps.h"
 #include "ScoreKeeperNormal.h"
@@ -190,6 +191,32 @@ Grade PlayerStageStats::GetGrade() const
 	 * is tricky since at that point the ScoreKeepers no longer exist. */
 	float fActual = 0;
 
+   // guitar mode is special because of course it is
+   if( GAMESTATE && !strcmp(GAMESTATE->GetCurrentGame()->gameName.c_str(), "guitar") )
+   {
+      // with GH3 grading...
+      // base score x1 = 3 stars = C
+      //   "    "   x2 = 4 stars = B
+      //   "    " x2.8 = 5 stars = A
+      // below 3 stars is failing, but we'll call that D
+      // and technically it goes higher but you need star power
+      if( m_iScore >= m_iBaseScore * 2.8 )
+      {
+         // if they get full combo, give them extra special grading
+         if( FullComboOfScore(TNS_W1) )
+            return Grade_Tier01;
+         else if( FullComboOfScore(TNS_W2) )
+            return Grade_Tier02;
+         else if( FullComboOfScore(TNS_W3) )
+            return Grade_Tier03;
+         else
+            return Grade_Tier04;
+      }
+      else if( m_iScore >= m_iBaseScore * 2 ) return Grade_Tier05;
+      else if( m_iScore >= m_iBaseScore ) return Grade_Tier06;
+      else return Grade_Tier07;
+   }
+   
 	bool bIsBeginner = false;
 	if( m_iStepsPlayed > 0 && !GAMESTATE->IsCourseMode() )
 		bIsBeginner = m_vpPossibleSteps[0]->GetDifficulty() == Difficulty_Beginner;
