@@ -3401,8 +3401,8 @@ static const Game g_Game_Guitar =
    // The new note types always map to TNS_W1, the misses here are to tighten the window for "slider" notes
    // which are really just regular tap notes for solos
    TNS_W1,	// m_mapW1To
-   TNS_W1,	// m_mapW2To
-   TNS_W1,	// m_mapW3To
+   TNS_W2,	// m_mapW2To
+   TNS_W3,	// m_mapW3To
    TNS_Miss,	// m_mapW4To
    TNS_Miss,	// m_mapW5To
 };

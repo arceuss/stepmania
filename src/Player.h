@@ -150,6 +150,7 @@ protected:
 	int GetClosestNonEmptyRowDirectional( int iStartRow, int iMaxRowsAhead, bool bAllowGraded, bool bForward ) const;
 	int GetClosestNonEmptyRow( int iNoteRow, int iMaxRowsAhead, int iMaxRowsBehind, bool bAllowGraded ) const;
 
+   TapNoteScore ScoreFromFloat( float fSecondsFromExact );
    int DoFretLogic( int col, bool bRelease );
    TapNoteScore DoGuitarGrading(int row, bool bRelease, float fNoteOffset, int gradeCode);
    void GradeNote(TapNoteScore tapScore, TapNote &iterNote, int col, float fNoteOffset, int iRowOfOverlappingNoteOrRow);

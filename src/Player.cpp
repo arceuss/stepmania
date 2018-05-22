@@ -2004,6 +2004,17 @@ int Player::DoFretLogic( int col, bool bRelease )
    return retCode;
 }
 
+// just something for a thing to save lines and stuff
+TapNoteScore Player::ScoreFromFloat( float fSecondsFromExact )
+{
+   if(    fSecondsFromExact <= GetWindowSeconds(TW_W1) )   return TNS_W1;
+   else if( fSecondsFromExact <= GetWindowSeconds(TW_W2) )   return TNS_W2;
+   else if( fSecondsFromExact <= GetWindowSeconds(TW_W3) )   return TNS_W3;
+   else if( fSecondsFromExact <= GetWindowSeconds(TW_W4) )   return TNS_W4;
+   else if( fSecondsFromExact <= GetWindowSeconds(TW_W5) )   return TNS_W5;
+   return TNS_None;
+}
+
 // Grades guitar notes, had to be seperated since fret logic always happens, but
 TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, int gradeCode)
 {
@@ -2028,7 +2039,7 @@ TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, 
          && m_bHOPOPossible)
       {
          // Evaluate HOPOs here
-         if(fSecondsFromExact <= GetWindowSeconds(TW_W5))
+         if(fSecondsFromExact <= GetWindowSeconds(TW_W3))
          {
             unsigned short int iNotesInRow = m_NoteData.GetNumTracksWithTapOrHoldHead( row );
             // hopo chords are a thing. weird and rare, but a thing.
@@ -2037,6 +2048,7 @@ TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, 
                if(IsChordHit(row, iNotesInRow))
                {
                   // Chord hit! grade every note now
+                  retScore = ScoreFromFloat(fSecondsFromExact);
                   for(int i=0; i<m_iStrumCol; i++)
                   {
                      if(m_vbFretIsDown[i])
@@ -2045,10 +2057,9 @@ TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, 
                         DEBUG_ASSERT( iter2!= m_NoteData.end(i) );
                         auto &itN = iter2->second;
                         
-                        GradeNote(TNS_W1, itN, i, fNoteOffset, row);
+                        GradeNote(retScore, itN, i, fNoteOffset, row);
                      }
                   }
-                  retScore = TNS_W1;
                   m_bHOPOPossible = true;
                }
                else
@@ -2059,8 +2070,8 @@ TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, 
             }
             else
             {
-               retScore = TNS_W1;
-               GradeNote(TNS_W1, *iterNote, m_iTopFret, fNoteOffset, row);
+               retScore = ScoreFromFloat(fSecondsFromExact);
+               GradeNote(retScore, *iterNote, m_iTopFret, fNoteOffset, row);
                m_bHOPOPossible = true;
             }
          }
@@ -2101,7 +2112,7 @@ TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, 
          if(iNotesInRow > 1)
          {
             // if the chord was successfully hit...
-            if(IsChordHit(row, iNotesInRow) && fSecondsFromExact <= GetWindowSeconds(TW_W5))
+            if(IsChordHit(row, iNotesInRow) && fSecondsFromExact <= GetWindowSeconds(TW_W3))
             {
                // Chord hit! grade every note now
                for(int i=0; i<m_iStrumCol; i++)
@@ -2115,7 +2126,7 @@ TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, 
                      GradeNote(TNS_W1, itN, i, fNoteOffset, row);
                   }
                }
-               retScore = TNS_W1;
+               retScore = ScoreFromFloat(fSecondsFromExact);
                m_bHOPOPossible = true;
             }
             else
@@ -2127,10 +2138,10 @@ TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, 
          }
          else
          {
-            if(fSecondsFromExact <= GetWindowSeconds(TW_W5))
+            if(fSecondsFromExact <= GetWindowSeconds(TW_W3))
             {
-               retScore = TNS_W1;
-               GradeNote(TNS_W1, *iterNote, m_iTopFret, fNoteOffset, row);
+               retScore = ScoreFromFloat(fSecondsFromExact);
+               GradeNote(retScore, *iterNote, m_iTopFret, fNoteOffset, row);
                m_bHOPOPossible = true;
             }
             else
@@ -2469,11 +2480,7 @@ void Player::Step( int col, int row, const RageTimer &tm, bool bHeld, bool bRele
 			default:
 				if( (iterNote.type == TapNoteType_Lift) == bRelease )
 				{
-					if(	 fSecondsFromExact <= GetWindowSeconds(TW_W1) )	score = TNS_W1;
-					else if( fSecondsFromExact <= GetWindowSeconds(TW_W2) )	score = TNS_W2;
-					else if( fSecondsFromExact <= GetWindowSeconds(TW_W3) )	score = TNS_W3;
-					else if( fSecondsFromExact <= GetWindowSeconds(TW_W4) )	score = TNS_W4;
-					else if( fSecondsFromExact <= GetWindowSeconds(TW_W5) )	score = TNS_W5;
+               score = ScoreFromFloat(fSecondsFromExact);
 				}
 				break;
 			}
