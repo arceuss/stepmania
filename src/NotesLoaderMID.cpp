@@ -212,6 +212,9 @@ MidiOrganizer organizeMidi(MidiFile* mf)
                       compareToString(tempTxt->buffer, "PART RHYTHM") ||
                       compareToString(tempTxt->buffer, "PART_RHYTHM")) {
                mo.bassTrack = tempTrk;
+            } else if(compareToString(tempTxt->buffer, "PART BASS GHL")) {
+               mo.bassTrack = tempTrk;
+               mo.FretType = SIX_FRETS;
             }
             // Drums and vocals means this is a RB song
             // AFAIK anything past GH3 never had midis ripped because people thought
@@ -964,15 +967,16 @@ bool MIDILoader::LoadFromDir( const std::string &sDir, Song &out ) {
    if(!lrcFile.empty()) out.m_sLyricsFile = lrcFile;
    
    // Get all notes from the guitar track
-   for(int i=0; i<4; i++)
+   for(int i=0; i<8; i++)
    {
-      // TODO: Initialize data and stuff in these steps
+      // Skip if there's no bass/rhythm track
+      if( i >= 4 && mo.bassTrack == NULL ) break;
       Steps* newSteps = out.CreateSteps();
       /* steps initialization stuff */
       if(mo.FretType == FIVE_FRETS)
-         newSteps->m_StepsType = StepsType_guitar_solo;
+         newSteps->m_StepsType = (i < 4 ? StepsType_guitar_solo : StepsType_guitar_backup);
       else if(mo.FretType == SIX_FRETS)
-         newSteps->m_StepsType = StepsType_guitar_solo6;
+         newSteps->m_StepsType = (i < 4 ? StepsType_guitar_solo6 : StepsType_guitar_backup6);
       newSteps->SetChartStyle("Guitar");
       newSteps->SetCredit( charter );
       newSteps->SetDescription( charter );
@@ -1000,6 +1004,26 @@ bool MIDILoader::LoadFromDir( const std::string &sDir, Song &out ) {
          case 3:
             newSteps->SetDifficulty(Difficulty_Challenge);
             newSteps->SetNoteData(getGHRBNotesFromTrack(mo.guitarTrack, Difficulty_Challenge, mo.HOPOType,
+                                                        mo.FretType, resolution, hopoResolution));
+            break;
+         case 4:
+            newSteps->SetDifficulty(Difficulty_Easy);
+            newSteps->SetNoteData(getGHRBNotesFromTrack(mo.bassTrack, Difficulty_Easy, mo.HOPOType,
+                                                        mo.FretType, resolution, hopoResolution));
+            break;
+         case 5:
+            newSteps->SetDifficulty(Difficulty_Medium);
+            newSteps->SetNoteData(getGHRBNotesFromTrack(mo.bassTrack, Difficulty_Medium, mo.HOPOType,
+                                                        mo.FretType, resolution, hopoResolution));
+            break;
+         case 6:
+            newSteps->SetDifficulty(Difficulty_Hard);
+            newSteps->SetNoteData(getGHRBNotesFromTrack(mo.bassTrack, Difficulty_Hard, mo.HOPOType,
+                                                        mo.FretType, resolution, hopoResolution));
+            break;
+         case 7:
+            newSteps->SetDifficulty(Difficulty_Challenge);
+            newSteps->SetNoteData(getGHRBNotesFromTrack(mo.bassTrack, Difficulty_Challenge, mo.HOPOType,
                                                         mo.FretType, resolution, hopoResolution));
             break;
          default:

@@ -543,10 +543,13 @@ Difficulty parseDifficulty(std::string str)
 }
 
 void initSteps(Steps &out, Difficulty diff, std::istringstream &iss, int resolution, int hopoResolution,
-               std::vector<std::string> headerInfo, bool isGHL)
+               std::vector<std::string> headerInfo, bool isGHL, bool isBackup)
 {
    // some of this is default BS, only weirdos with guitars use .chart files
-   out.m_StepsType = isGHL ? StepsType_guitar_solo6 : StepsType_guitar_solo;
+   if( isBackup )
+      out.m_StepsType = isGHL ? StepsType_guitar_backup6 : StepsType_guitar_backup;
+   else
+      out.m_StepsType = isGHL ? StepsType_guitar_solo6 : StepsType_guitar_solo;
    out.SetChartStyle("Guitar");
    out.SetCredit( headerInfo[1] );
    out.SetDescription( headerInfo[1] );
@@ -604,8 +607,10 @@ bool ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
             // parse events (only for whole song)
             if(parseSongInfo) parseEvents(iss, outSong, resolution);
             // TODO: maybe add the other steps too?
-         } else if( vsWords[0].find("Single") != std::string::npos || vsWords[0].find("GHLGuitar") != std::string::npos ) {
-            bool isGHL = vsWords[0].find("GHLGuitar") != std::string::npos;
+         } else if( vsWords[0].find("Single") != std::string::npos || vsWords[0].find("GHLGuitar") != std::string::npos ||
+                   vsWords[0].find("Double") != std::string::npos || vsWords[0].find("GHLBass") != std::string::npos) {
+            bool isGHL = vsWords[0].find("GHL") != std::string::npos;
+            bool isBackup = vsWords[0].find("Double") != std::string::npos || vsWords[0].find("Bass") != std::string::npos;
             Difficulty currDiff = parseDifficulty(vsWords[0]);
             if( !parseSongInfo )
             {
@@ -622,7 +627,7 @@ bool ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
             } else {
                // if we're parsing the whole song, we need all steps
                Steps* pNewNotes = outSong.CreateSteps();
-               initSteps(*pNewNotes, currDiff, iss, resolution, iHopoResolution, headerInfo, isGHL);
+               initSteps(*pNewNotes, currDiff, iss, resolution, iHopoResolution, headerInfo, isGHL, isBackup);
                pNewNotes->SetFilename(sFileName);
                outSong.AddSteps(pNewNotes);
                foundChart = true;
@@ -686,7 +691,9 @@ bool CHARTLoader::LoadFromDir( const std::string &sDir, Song &out ) {
 bool CHARTLoader::LoadNoteDataFromSimfile( const std::string & cachePath, Steps &out ) {
    Song *tempSong = NULL;
    // chart loader is ony for guitar mode
-   if(out.m_StepsType != StepsType_guitar_solo && out.m_StepsType != StepsType_guitar_solo6) return false;
+   if(out.m_StepsType != StepsType_guitar_solo && out.m_StepsType != StepsType_guitar_solo6 &&
+      out.m_StepsType != StepsType_guitar_backup && out.m_StepsType != StepsType_guitar_backup6) return false;
    // This is simple since the path is already given to us
-   return ReadFile(cachePath, *tempSong, out, false, out.m_StepsType == StepsType_guitar_solo6);
+   return ReadFile(cachePath, *tempSong, out, false, (out.m_StepsType == StepsType_guitar_solo6 ||
+                                                      out.m_StepsType == StepsType_guitar_backup6));
 }
