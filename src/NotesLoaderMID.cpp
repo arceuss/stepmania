@@ -1056,8 +1056,12 @@ bool MIDILoader::LoadNoteDataFromSimfile( const std::string & cachePath, Steps &
    parseINI(sBasePath, &resolution, &hopoResolution, title, artist, charter);
    
    // Get the desired notes from the guitar track
-   out.SetNoteData(getGHRBNotesFromTrack(mo.guitarTrack, out.GetDifficulty(), mo.HOPOType,
+   if( out.m_StepsType == StepsType_guitar_backup || out.m_StepsType == StepsType_guitar_backup6 )
+      out.SetNoteData(getGHRBNotesFromTrack(mo.bassTrack, out.GetDifficulty(), mo.HOPOType,
                                          mo.FretType, resolution, hopoResolution));
+   else
+      out.SetNoteData(getGHRBNotesFromTrack(mo.guitarTrack, out.GetDifficulty(), mo.HOPOType,
+                                            mo.FretType, resolution, hopoResolution));
    out.TidyUpData();
    
    return true;

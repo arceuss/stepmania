@@ -614,7 +614,9 @@ bool ReadBuf( const char *buf, int len, Song &outSong, Steps &outSteps, bool par
             Difficulty currDiff = parseDifficulty(vsWords[0]);
             if( !parseSongInfo )
             {
-               if(currDiff != outSteps.GetDifficulty() || needGHL != isGHL ) {
+               bool outStepsIsBackup = ((outSteps.m_StepsType == StepsType_guitar_backup) ||
+                                        (outSteps.m_StepsType == StepsType_guitar_backup6));
+               if(currDiff != outSteps.GetDifficulty() || needGHL != isGHL || outStepsIsBackup != isBackup) {
                   // not the steps we're looking for
                   continue;
                } else {
