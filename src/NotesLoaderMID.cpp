@@ -834,6 +834,7 @@ std::string createLyricsFile( const std::string path, TimingData td, int resolut
    RageFile f;
    MidiFile::MidiEvent *curEvt = track;
    int lastMeasure = 0;
+   int lastLyric = 0;
    std::string curLine = "";
    bool phraseOpen = false;
    
@@ -873,6 +874,7 @@ std::string createLyricsFile( const std::string path, TimingData td, int resolut
                
                // append to line
                curLine += txt;
+               lastLyric = txtEvent->tick;
             }
          }
       }
@@ -882,7 +884,7 @@ std::string createLyricsFile( const std::string path, TimingData td, int resolut
          if (tempNote->note == 105 || tempNote->note == 106)
          {
             // beginning of a new phrase, format the line
-            if (tempNote->subType == MidiFile::MidiNote_NoteOn && !phraseOpen)
+            if (tempNote->subType == MidiFile::MidiNote_NoteOn && tempNote->velocity > 0 && !phraseOpen)
             {
                // if more than a beat elapsed from last lyrics, insert a blank line
                if (tempNote->tick - lastMeasure > resolution)
@@ -894,10 +896,18 @@ std::string createLyricsFile( const std::string path, TimingData td, int resolut
                phraseOpen = true;
             }
             // end of a phrase, append to file
-            else if (tempNote->subType == MidiFile::MidiNote_NoteOff && phraseOpen)
+            else if ((tempNote->subType == MidiFile::MidiNote_NoteOff ||
+                      (tempNote->subType == MidiFile::MidiNote_NoteOn && tempNote->velocity == 0)) && phraseOpen)
             {
                f.PutLine(curLine);
                lastMeasure = tempNote->tick;
+               // if more than a measure elapsed since the last lyric, put a blank line in too
+               if( lastMeasure - lastLyric >= resolution * 4 )
+               {
+                  std::string blankLine = getTimeString(td.GetElapsedTimeFromBeat( (float)(lastLyric +
+                                                                                 (4 * resolution)) / resolution ));
+                  f.PutLine(blankLine);
+               }
                phraseOpen = false;
             }
          }
