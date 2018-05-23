@@ -114,6 +114,8 @@ enum StepsType
 	StepsType_kickbox_arachnid,
    StepsType_guitar_solo,
    StepsType_guitar_solo6,
+   StepsType_guitar_backup,
+   StepsType_guitar_backup6,
 	NUM_StepsType,		// leave this at the end
 	StepsType_Invalid,
 };

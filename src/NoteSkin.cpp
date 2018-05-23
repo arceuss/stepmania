@@ -1290,6 +1290,10 @@ static vector<vector<string> > button_lists = {
 // StepsType_guitar_solo,
    {"Fret1", "Fret2", "Fret3", "Fret4", "Fret5", "StrumDown"},
 // StepsType_guitar_solo6,
+   {"Fret1", "Fret2", "Fret3", "Fret4", "Fret5", "Fret6", "StrumDown"},
+// StepsType_guitar_backup,
+   {"Fret1", "Fret2", "Fret3", "Fret4", "Fret5", "StrumDown"},
+// StepsType_guitar_backup6,
    {"Fret1", "Fret2", "Fret3", "Fret4", "Fret5", "Fret6", "StrumDown"}
 // There should really be some assert to make sure this is the same length as the StepsType Enum
 };

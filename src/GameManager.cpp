@@ -103,6 +103,9 @@ static const StepsTypeInfo g_StepsTypeInfos[] = {
    // guitar mode, added by mikex5
    { "guitar-solo", 6, false, StepsTypeCategory_Single },
    { "guitar-solo6", 7, false, StepsTypeCategory_Single },
+   // "accompaniment" is a long word, this is for bass/rhythm
+   { "guitar-backup", 6, false, StepsTypeCategory_Single},
+   { "guitar-backup6", 7, false, StepsTypeCategory_Single},
 };
 
 
@@ -3193,6 +3196,45 @@ static const Style g_Style_Guitar_Solo =
    false, // m_bLockDifficulties
 };
 
+static const Style g_Style_Guitar_Backup =
+{   // STYLE_GUITAR_BACKUP
+   true,            // m_bUsedForGameplay
+   true,            // m_bUsedForEdit
+   false,            // m_bUsedForDemonstration
+   true,            // m_bUsedForHowToPlay
+   "backup",         // m_szName
+   StepsType_guitar_backup,      // m_StepsType
+   StyleType_OnePlayerOneSide,      // m_StyleType
+   6,            // m_iColsPerPlayer
+   {   // m_ColumnInfo[NUM_PLAYERS][MAX_COLS_PER_PLAYER];
+      {   // PLAYER_1
+         { TRACK_1,   nullptr },
+         { TRACK_2,   nullptr },
+         { TRACK_3,   nullptr },
+         { TRACK_4,   nullptr },
+         { TRACK_5,   nullptr },
+         { TRACK_6,   nullptr },
+      },
+      {   // PLAYER_2
+         { TRACK_1,   nullptr },
+         { TRACK_2,   nullptr },
+         { TRACK_3,   nullptr },
+         { TRACK_4,   nullptr },
+         { TRACK_5,   nullptr },
+         { TRACK_6,   nullptr },
+      },
+   },
+   {   // m_iInputColumn[NUM_GameController][NUM_GameButton]
+      { 0, 1, 2, 3, 4, Style::NO_MAPPING, 5, 5, Style::END_MAPPING },
+      { 0, 1, 2, 3, 4, Style::NO_MAPPING, 5, 5, Style::END_MAPPING },
+   },
+   {   // m_iColumnDrawOrder[MAX_COLS_PER_PLAYER];
+      5,4,0,3,1,2
+   },
+   false, // m_bCanUseBeginnerHelper
+   false, // m_bLockDifficulties
+};
+
 static const Style g_Style_Guitar_Versus =
 {	// STYLE_GUITAR_VERSUS
    true,				// m_bUsedForGameplay
@@ -3316,6 +3358,47 @@ static const Style g_Style_Guitar_Solo6 =
    false, // m_bLockDifficulties
 };
 
+static const Style g_Style_Guitar_Backup6 =
+{   // STYLE_GUITAR_SOLO6
+   true,            // m_bUsedForGameplay
+   true,            // m_bUsedForEdit
+   false,            // m_bUsedForDemonstration
+   true,            // m_bUsedForHowToPlay
+   "backup6",         // m_szName
+   StepsType_guitar_backup6,   // m_StepsType
+   StyleType_OnePlayerOneSide,      // m_StyleType
+   7,            // m_iColsPerPlayer
+   {   // m_ColumnInfo[NUM_PLAYERS][MAX_COLS_PER_PLAYER];
+      {   // PLAYER_1
+         { TRACK_1,   nullptr },
+         { TRACK_2,   nullptr },
+         { TRACK_3,   nullptr },
+         { TRACK_4,   nullptr },
+         { TRACK_5,   nullptr },
+         { TRACK_6,   nullptr },
+         { TRACK_7,   nullptr },
+      },
+      {   // PLAYER_2
+         { TRACK_1,   nullptr },
+         { TRACK_2,   nullptr },
+         { TRACK_3,   nullptr },
+         { TRACK_4,   nullptr },
+         { TRACK_5,   nullptr },
+         { TRACK_6,   nullptr },
+         { TRACK_7,   nullptr },
+      },
+   },
+   {   // m_iInputColumn[NUM_GameController][NUM_GameButton]
+      { 0, 1, 2, 3, 4, 5, 6, 6, Style::END_MAPPING },
+      { 0, 1, 2, 3, 4, 5, 6, 6, Style::END_MAPPING },
+   },
+   {   // m_iColumnDrawOrder[MAX_COLS_PER_PLAYER];
+      6,5,3,4,2,0,1
+   },
+   false, // m_bCanUseBeginnerHelper
+   false, // m_bLockDifficulties
+};
+
 static const Style g_Style_Guitar_Group6 =
 {	// STYLE_GUITAR_GROUP6
    true,				// m_bUsedForGameplay
@@ -3363,6 +3446,8 @@ static const Style *g_apGame_Guitar_Styles[] =
    &g_Style_Guitar_Versus,
    &g_Style_Guitar_Solo6,
    &g_Style_Guitar_Group6,
+   &g_Style_Guitar_Backup,
+   &g_Style_Guitar_Backup6,
    nullptr
 };
 
