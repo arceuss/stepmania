@@ -2099,8 +2099,12 @@ TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, 
       // if no notes are there, just exit
       if(iter == m_NoteData.end(idx))
       {
-         DoTapScoreNone(!bRelease);
-         m_bHOPOPossible = false;
+         // but do not penalise if a hopo was hit while strumming
+         if( (retScore & 1) != 0 )
+         {
+            DoTapScoreNone(!bRelease);
+            m_bHOPOPossible = false;
+         }
          return retScore;
       }
       // if the highest column has a gem or hopo

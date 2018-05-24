@@ -196,6 +196,14 @@ MidiOrganizer organizeMidi(MidiFile* mf)
       MidiFile::MidiEvent* tempTrk = mf->tracks[i];
       if(tempTrk->type == MidiFile::MidiEventType_Meta)
       {
+         // skip ahead of any extra events
+         while( tempTrk->subType != MidiFile::MidiMeta_TrackName &&
+               tempTrk->subType != MidiFile::MidiMeta_Tempo &&
+               tempTrk->subType != MidiFile::MidiMeta_TimeSignature)
+         {
+            tempTrk = tempTrk->pNext;
+         }
+         
          if(tempTrk->subType == MidiFile::MidiMeta_TrackName)
          {
             // found one of the important tracks, figure out which it is

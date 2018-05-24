@@ -3456,8 +3456,8 @@ static const Game g_Game_Guitar =
    "guitar",						// gameName
    g_apGame_Guitar_Styles,				// m_apStyles
    false,						// m_bCountNotesSeparately
-   true, // m_bTickHolds
-   false, // m_PlayersHaveSeparateStyles
+   false, // m_bTickHolds
+   true, // m_PlayersHaveSeparateStyles
    {						// m_InputScheme
       "guitar",					// m_szName
       NUM_GUITAR_BUTTONS,			// m_iButtonsPerController
@@ -3483,8 +3483,8 @@ static const Game g_Game_Guitar =
       { GameButtonType_Step },
       { GameButtonType_Step },
    },
-   // The new note types always map to TNS_W1, the misses here are to tighten the window for "slider" notes
-   // which are really just regular tap notes for solos
+   // only options are to add to combo or break it, none of that "continue" stuff, and timing is really
+   // just bonus points
    TNS_W1,	// m_mapW1To
    TNS_W2,	// m_mapW2To
    TNS_W3,	// m_mapW3To
