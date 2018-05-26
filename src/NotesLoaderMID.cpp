@@ -191,6 +191,16 @@ MidiOrganizer organizeMidi(MidiFile* mf)
    mo.venueTrack = NULL;
    mo.otherTrack = NULL;
    
+   // technically not kosher, but lets make it work anyway
+   // some custom midis are just one track, beat and guitar rolled into one
+   if( mf->numTracks == 1 )
+   {
+      mo.guitarTrack = mf->tracks[0];
+      mo.beatTrack = mf->tracks[0];
+      mo.HOPOType = GH_HOPO_Rules;
+      return mo;
+   }
+   
    for(int i = mf->numTracks - 1; i >= 0; i--)
    {
       MidiFile::MidiEvent* tempTrk = mf->tracks[i];
