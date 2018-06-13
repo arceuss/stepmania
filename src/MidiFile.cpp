@@ -62,7 +62,7 @@ template <typename midT>
 void FlipEndianness(midT *pBytes)
 {
    size_t tempSize = sizeof(midT);
-   char holder[tempSize];
+   char *holder = new char[tempSize];
    char *tempData = (char*)pBytes;
    
    for (int i = 0; i < tempSize; i++) {
@@ -70,6 +70,7 @@ void FlipEndianness(midT *pBytes)
    }
    
    *pBytes = *(midT*)holder;
+   delete[](holder);
 }
 
 /* Constructor for MidiFile class */

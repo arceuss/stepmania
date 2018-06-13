@@ -397,7 +397,8 @@ bool checkHOPOConditions(int iNoteTrack, int iNoteMark, GuitarData gd)
 void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
 {
    bool isChordRow = false;
-   TapNote taps[gd.iCols];
+   //TapNote taps[gd.iCols]; this doesn't work in some compilers
+   TapNote *taps = new TapNote[gd.iCols];
    int highestNote = -1;
    // precalculate these
    int realEnd = end;
@@ -526,6 +527,9 @@ void addGHRBNote(NoteData &notes, int col, int start, int end, GuitarData &gd)
       gd.iPrevNoteMark[col] = start;
       gd.iPrevNoteTrack = col;
    } // end else normal note col
+   
+   // clean up temporary array
+   delete[](taps);
 }
 
 /**
