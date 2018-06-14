@@ -33,6 +33,7 @@ local chart_mod_names= {
 		 "Planted",
 		 "Floored",
 		 "Twister",
+		 "AllTaps",
 	}},
 }
 

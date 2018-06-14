@@ -2404,6 +2404,29 @@ void NoteDataUtil::Twister( NoteData &inout, int iStartIndex, int iEndIndex )
 {
 	ConvertTapsToHolds( inout, 3, iStartIndex, iEndIndex );
 }
+void NoteDataUtil::AllTaps( NoteData &inout, int iStartIndex, int iEndIndex )
+{
+   // Convert any non-tap or non-hold to one of those
+   // this doesn't cover all bases... maybe I should just in case?
+   FOREACH_NONEMPTY_ROW_ALL_TRACKS_RANGE( inout, r, iStartIndex, iEndIndex )
+   {
+      for( int t=0; t<inout.GetNumTracks(); t++ )
+      {
+         TapNote thisNote = inout.GetTapNote(t,r);
+         if( thisNote.type == TapNoteType_Gem || thisNote.type == TapNoteType_HOPO ||
+            thisNote.type == TapNoteType_Fake || thisNote.type == TapNoteType_Lift ||
+            thisNote.type == TapNoteType_Mine )
+         {
+            inout.SetTapNote(t, r, TAP_ORIGINAL_TAP);
+         }
+         else if( thisNote.type == TapNoteType_GemHold || thisNote.type == TapNoteType_HOPOHold )
+         {
+            int len = thisNote.iDuration;
+            inout.AddHoldNote(t, r, r + len, TAP_ORIGINAL_HOLD_HEAD);
+         }
+      }
+   }
+}
 void NoteDataUtil::ConvertTapsToHolds( NoteData &inout, int iSimultaneousHolds, int iStartIndex, int iEndIndex )
 {
 	// Convert all taps to freezes.
@@ -2809,6 +2832,9 @@ void NoteDataUtil::TransformNoteData( NoteData &nd, TimingData const& timing_dat
 	// AddIntelligentTaps above won't.
 	if( po.m_bTransforms[PlayerOptions::TRANSFORM_SKIPPY] )		NoteDataUtil::Skippy( nd, iStartIndex, iEndIndex );
 
+   // This just converts, no adding
+   if( po.m_bTransforms[PlayerOptions::TRANSFORM_ALLTAPS] )    NoteDataUtil::AllTaps( nd, iStartIndex, iEndIndex );
+   
 	// These aren't affects by the above inserts very much.
 	if( po.m_bTransforms[PlayerOptions::TRANSFORM_MINES] )		NoteDataUtil::AddMines( nd, iStartIndex, iEndIndex );
 	if( po.m_bTransforms[PlayerOptions::TRANSFORM_ECHO] )		NoteDataUtil::Echo( nd, iStartIndex, iEndIndex );

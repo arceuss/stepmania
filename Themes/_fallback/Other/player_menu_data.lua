@@ -6,8 +6,8 @@ for i, name in ipairs{
 	"TurnNone", "Mirror", "Backwards", "Left", "Right", "Shuffle",
 	"SoftShuffle", "SuperShuffle", "NoHolds", "NoRolls", "NoMines", "Little", 
 	"Wide", "Big", "Quick", "BMRize", "Skippy", "Mines", "AttackMines",
-	"Echo", "Stomp", "Planted", "Floored", "Twister", "HoldRolls", "NoJumps", 
-	"NoHands", "NoLifts", "NoFakes", "NoQuads", "NoStretch", "MuteOnError",
+	"Echo", "Stomp", "Planted", "Floored", "Twister", "AllTaps", "HoldRolls",
+	"NoJumps", "NoHands", "NoLifts", "NoFakes", "NoQuads", "NoStretch", "MuteOnError",
 } do
 	option_data[name]= {broad_type= "bool"}
 end

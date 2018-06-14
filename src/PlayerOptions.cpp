@@ -948,6 +948,7 @@ bool PlayerOptions::FromOneModString( std::string const &sOneMod, std::string &s
 			{"planted", TRANSFORM_PLANTED},
 			{"floored", TRANSFORM_FLOORED},
 			{"twister", TRANSFORM_TWISTER},
+         {"alltaps", TRANSFORM_ALLTAPS},
 			{"holdrolls", TRANSFORM_HOLDROLLS},
 			{"nojumps", TRANSFORM_NOJUMPS},
 			{"nohands", TRANSFORM_NOHANDS},
@@ -1561,6 +1562,8 @@ bool PlayerOptions::IsEasierForSongAndSteps( Song* pSong, Steps* pSteps, PlayerN
 	if( m_bTransforms[TRANSFORM_FLOORED] )	return true;
 	if( m_bTransforms[TRANSFORM_TWISTER] )	return true;
 
+   if( m_bTransforms[TRANSFORM_ALLTAPS] ) return true;
+   
 	// This makes songs with sparse notes easier.
 	if( m_bTransforms[TRANSFORM_ECHO] )	return true;
 
@@ -1975,6 +1978,7 @@ public:
 	BOOL_INTERFACE(Planted, Transforms[PlayerOptions::TRANSFORM_PLANTED]);
 	BOOL_INTERFACE(Floored, Transforms[PlayerOptions::TRANSFORM_FLOORED]);
 	BOOL_INTERFACE(Twister, Transforms[PlayerOptions::TRANSFORM_TWISTER]);
+   BOOL_INTERFACE(AllTaps, Transforms[PlayerOptions::TRANSFORM_ALLTAPS]);
 	BOOL_INTERFACE(HoldRolls, Transforms[PlayerOptions::TRANSFORM_HOLDROLLS]);
 	BOOL_INTERFACE(NoJumps, Transforms[PlayerOptions::TRANSFORM_NOJUMPS]);
 	BOOL_INTERFACE(NoHands, Transforms[PlayerOptions::TRANSFORM_NOHANDS]);
@@ -2448,6 +2452,7 @@ public:
 		ADD_METHOD(Planted);
 		ADD_METHOD(Floored);
 		ADD_METHOD(Twister);
+      ADD_METHOD(AllTaps);
 		ADD_METHOD(HoldRolls);
 		ADD_METHOD(NoJumps);
 		ADD_METHOD(NoHands);

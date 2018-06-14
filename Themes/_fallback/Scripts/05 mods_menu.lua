@@ -388,8 +388,8 @@ function get_player_options_as_string(pn, hide_fail)
 		"SoftShuffle", "SuperShuffle", "NoHolds", "NoRolls", "NoMines",
 		"Little", "Wide", "Big", "Quick", "BMRize", "Skippy", "Mines",
 		"AttackMines", "Echo", "Stomp", "Planted", "Floored", "Twister",
-		"HoldRolls", "NoJumps", "NoHands", "NoLifts", "NoFakes", "NoQuads",
-		"NoStretch", "MuteOnError",
+		"AllTaps", "HoldRolls", "NoJumps", "NoHands", "NoLifts", "NoFakes",
+		"NoQuads", "NoStretch", "MuteOnError",
 	}
 	for i, name in ipairs(bool_mods) do
 		if ops[name](ops) then
