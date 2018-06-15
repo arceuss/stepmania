@@ -2015,8 +2015,9 @@ TapNoteScore Player::ScoreFromFloat( float fSecondsFromExact )
    return TNS_None;
 }
 
-// Grades guitar notes, had to be seperated since fret logic always happens, but
-TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, int gradeCode)
+// Grades guitar notes, had to be seperated since fret logic always happens
+// Also, grade tap notes here since it is valid to strum them
+TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, int gradeCode, bool *alreadyGraded)
 {
    const float fSecondsFromExact = fabsf( fNoteOffset );
    TapNoteScore retScore = TNS_None;
@@ -2035,10 +2036,11 @@ TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, 
          iterNote = &iter->second;
       
       // Now grade the hopo if one exists
-      if( iter != m_NoteData.end(idx) && (iterNote->type == TapNoteType_HOPO || iterNote->type == TapNoteType_HOPOHold)
-         && m_bHOPOPossible)
+      if( iter != m_NoteData.end(idx) && (((iterNote->type == TapNoteType_HOPO || iterNote->type == TapNoteType_HOPOHold)
+         && m_bHOPOPossible) || (iterNote->type == TapNoteType_Tap || iterNote->type == TapNoteType_HoldHead)) )
       {
          // Evaluate HOPOs here
+         *alreadyGraded = true;
          if(fSecondsFromExact <= GetWindowSeconds(TW_W3))
          {
             unsigned short int iNotesInRow = m_NoteData.GetNumTracksWithTapOrHoldHead( row );
@@ -2109,9 +2111,11 @@ TapNoteScore Player::DoGuitarGrading(int row, bool bRelease, float fNoteOffset, 
       }
       // if the highest column has a gem or hopo
       if(iterNote->type == TapNoteType_Gem || iterNote->type == TapNoteType_GemHold ||
-         iterNote->type == TapNoteType_HOPO || iterNote->type == TapNoteType_HOPOHold)
+         iterNote->type == TapNoteType_HOPO || iterNote->type == TapNoteType_HOPOHold ||
+         iterNote->type == TapNoteType_Tap || iterNote->type == TapNoteType_HoldHead)
       {
          // check if this is a chord
+         *alreadyGraded = true;
          unsigned short int iNotesInRow = m_NoteData.GetNumTracksWithTapOrHoldHead( row );
          if(iNotesInRow > 1)
          {
@@ -2446,48 +2450,53 @@ void Player::Step( int col, int row, const RageTimer &tm, bool bHeld, bool bRele
       auto &iterNote = iter->second;
       
       // Do all logic for frets and guitar notes in a seperate function
+      bool alreadyGraded = false;
       if( m_iStrumCol != -1 && guitarGradeCode != 0 ) {
-         score = DoGuitarGrading( iRowOfOverlappingNoteOrRow, bRelease, fNoteOffset, guitarGradeCode );
+         score = DoGuitarGrading( iRowOfOverlappingNoteOrRow, bRelease, fNoteOffset, guitarGradeCode, &alreadyGraded );
       }
 
 		switch( m_pPlayerState->m_PlayerController )
 		{
 		case PC_HUMAN:
-			switch( iterNote.type )
-			{
-         // Skip grading guitar notes, was handled in DoGuitarGrading
-         case TapNoteType_HOPO:
-         case TapNoteType_HOPOHold:
-         case TapNoteType_Gem:
-         case TapNoteType_GemHold:
-            break;
-			case TapNoteType_Mine:
-				// Stepped too close to mine?
-				if( !bRelease && ( REQUIRE_STEP_ON_MINES == !bHeld ) &&
-				   fSecondsFromExact <= GetWindowSeconds(TW_Mine) &&
-				   m_Timing->IsJudgableAtRow(iSongRow))
-					score = TNS_HitMine;
-				break;
-			case TapNoteType_Attack:
-				if( !bRelease && fSecondsFromExact <= GetWindowSeconds(TW_Attack) && !iterNote.result.bHidden )
-					score = AllowW1() ? TNS_W1 : TNS_W2; // sentinel
-				break;
-			case TapNoteType_HoldHead:
-				// oh wow, this was causing the trigger before the hold heads
-				// bug. (It was fNoteOffset > 0.f before) -DaisuMaster
-				if( !REQUIRE_STEP_ON_HOLD_HEADS && ( fNoteOffset <= GetWindowSeconds( TW_W5 ) && GetWindowSeconds( TW_W5 ) != 0 ) )
-				{
-					score = TNS_W1;
-					break;
-				}
-				// Fall through to default.
-			default:
-				if( (iterNote.type == TapNoteType_Lift) == bRelease )
-				{
-               score = ScoreFromFloat(fSecondsFromExact);
-				}
-				break;
-			}
+         // skip if note was already graded
+         if(score == TNS_None && !alreadyGraded)
+         {
+            switch( iterNote.type )
+            {
+            // Skip grading guitar notes, was handled in DoGuitarGrading
+            case TapNoteType_HOPO:
+            case TapNoteType_HOPOHold:
+            case TapNoteType_Gem:
+            case TapNoteType_GemHold:
+               break;
+            case TapNoteType_Mine:
+               // Stepped too close to mine?
+               if( !bRelease && ( REQUIRE_STEP_ON_MINES == !bHeld ) &&
+                  fSecondsFromExact <= GetWindowSeconds(TW_Mine) &&
+                  m_Timing->IsJudgableAtRow(iSongRow))
+                  score = TNS_HitMine;
+               break;
+            case TapNoteType_Attack:
+               if( !bRelease && fSecondsFromExact <= GetWindowSeconds(TW_Attack) && !iterNote.result.bHidden )
+                  score = AllowW1() ? TNS_W1 : TNS_W2; // sentinel
+               break;
+            case TapNoteType_HoldHead:
+               // oh wow, this was causing the trigger before the hold heads
+               // bug. (It was fNoteOffset > 0.f before) -DaisuMaster
+               if( !REQUIRE_STEP_ON_HOLD_HEADS && ( fNoteOffset <= GetWindowSeconds( TW_W5 ) && GetWindowSeconds( TW_W5 ) != 0 ) )
+               {
+                  score = TNS_W1;
+                  break;
+               }
+               // Fall through to default.
+            default:
+               if( (iterNote.type == TapNoteType_Lift) == bRelease )
+               {
+                  score = ScoreFromFloat(fSecondsFromExact);
+               }
+               break;
+            }
+         }
 			break;
 
 		case PC_CPU:
